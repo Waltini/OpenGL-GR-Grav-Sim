@@ -50,9 +50,17 @@ int main(int, char**)
 	// Graphics Loop
 	while (!glfwWindowShouldClose(window))
 	{
+		// Input processing
+		process_input(window);
+
+		// render processing here
+		// ...
+
+		// Buffers are swapped and events are checked and called
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+	// As soon as the window is set to close the while loop is passed and then glfw is terminated
 	glfwTerminate();
 	return 0;
 };
@@ -60,10 +68,16 @@ int main(int, char**)
 // Function definitions ~ kept below the main loop for formatting
 static void glfw_error_callback(int error, const char* description)
 {
-	fprintf(stderr, "GLFW ERROR %d: %s\n", error, description);
+	fprintf(stderr, "GLFW ERROR %d: %s\n", error, description); // formatted print ~ using the format of a C error document it prints GLFW ERROR then its error number and then the description
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, width, height); // Details how OpenGL should map its NDC (Normalised Device Coordinates) to the display
+}
+
+void process_input(GLFWwindow* window)
+{
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // Terminate command
+		glfwSetWindowShouldClose(window, true); // Causes while loop to break
 }
