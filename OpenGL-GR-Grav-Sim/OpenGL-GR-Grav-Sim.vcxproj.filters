@@ -24,5 +24,8 @@
     <ClCompile Include="..\..\..\..\VCPKG\vcpkg\installed\x64-windows\include\imgui\backends\imgui_impl_opengl3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="formulae.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
