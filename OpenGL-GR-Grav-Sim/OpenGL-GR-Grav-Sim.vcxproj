@@ -148,11 +148,6 @@
     <ClCompile Include="formulae.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="glm.hpp" />
-    <ClInclude Include="matrix_transform.hpp" />
-    <ClInclude Include="type_ptr.hpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
