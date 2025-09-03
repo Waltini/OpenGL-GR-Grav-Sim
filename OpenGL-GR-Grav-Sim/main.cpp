@@ -3,6 +3,10 @@
 #include <imgui/backends/imgui_impl_opengl3.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "formulae.h"
 
 #include <iostream>
 
@@ -21,8 +25,9 @@ int main(int, char**)
 	{
 		return -1;
 	}
+
 	// Context
-	const char* glsl_version = "#veresion 330";
+	const char* glsl_version = "#version 330 core";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // Informs GLFW I'm using OpenGL Version 3.x
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); // Informs GLFW I'm using OpenGL Version x.3
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -41,6 +46,16 @@ int main(int, char**)
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); // sets the framebuffer size callback GLFW will use to the one I programmed
 	glfwSetErrorCallback(glfw_error_callback); // sets the error callback GLFW will use to the one I programmed
 
+	// Setup ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls    
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplGlfw_InitForOpenGL(window, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
+	ImGui_ImplOpenGL3_Init(glsl_version);
+
 	// Initialises GLAD
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -48,20 +63,43 @@ int main(int, char**)
 		return -1;
 	}
 
+	bool show = false;
+	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);
+
 	// Graphics Loop
 	while (!glfwWindowShouldClose(window))
 	{
 		// Input processing
 		process_input(window);
+		glClearColor(background.x, background.y, background.z, background.w);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		// Imgui Frame Start
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		if (show) {
+			ImGui::Begin("Hello World!");
+			ImGui::Text("Tester Text");
+			ImGui::End();
+		}
 
 		// render processing here
 		// ...
+
+		// Imgui Render
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		// Buffers are swapped and events are checked and called
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-	// As soon as the window is set to close the while loop is passed and then glfw is terminated
+	// As soon as the window is set to close, the while loop is passed and then Imgui and glfw is terminated
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 	glfwTerminate();
 	return 0;
 };
