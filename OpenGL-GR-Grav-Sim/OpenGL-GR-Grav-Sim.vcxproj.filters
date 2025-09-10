@@ -27,9 +27,18 @@
     <ClCompile Include="formulae.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="integration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="formulae.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="celestial_body_class.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="integration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

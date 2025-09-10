@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "formulae.h"
+#include "celestial_body_class.h"
+#include "integration.h"
 
 #include <iostream>
 
@@ -62,6 +64,35 @@ int main(int, char**)
 		std::cout << "Failed to initialise GLAD" << std::endl;
 		return -1;
 	}
+
+	//glm::dvec3 pos1("words", "1.0f", 1.0f);
+	//glm::dvec3 pos2(0.0f, "0.0f", 0.0f);
+	//glm::dvec3 vel1(1.0f, 1.0f, "1.0f");
+	//glm::dvec3 vel2(0.0f, 0.0, 0.0f);
+	//double m1 = 1;
+	//double m2 = 2;
+
+	ldvec3 pos {0.0L, 0.0L, 0.0L};
+	ldvec3 v {0.0L, 0.0L, 0.0L};
+	long double m = 1;
+
+	celestial_body body1 = celestial_body(pos, v, m);
+
+	body1.print();
+
+	//double dt = 0.0001;
+
+	//stepRK4(body1, body2, dt, true);
+
+	//pos1 = body1.getPos();
+	//pos2 = body2.getPos();
+	//vel1 = body1.getVel();
+	//vel2 = body2.getVel();
+
+	//std::cout << "pos1 = " << pos1.x << " " << pos1.y << " " << pos1.z << std::endl;
+	//std::cout << "pos2 = " << pos2.x << " " << pos2.y << " " << pos2.z << std::endl;
+	//std::cout << "vel1 = " << vel1.x << " " << vel1.y << " " << vel1.z << std::endl;
+	//std::cout << "vel2 = " << vel2.x << " " << vel2.y << " " << vel2.z << std::endl;
 
 	bool show = false;
 	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);
