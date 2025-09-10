@@ -3,34 +3,46 @@
 
 #include <glm/glm.hpp>
 #include <iostream>
+#include <iomanip>
+
+using ldvec3 = glm::tvec3<long double>;
 
 class celestial_body {
 private:
-    glm::dvec3 pos;
-    glm::dvec3 vec;
-    double mass;
+    ldvec3 pos;
+    ldvec3 vel;
+    long double mass;
 public:
     // Constructor
-    celestial_body(glm::dvec3 position, glm::dvec3 velocity, double m)
-        : pos(position), vec(velocity), mass(m) {
+    celestial_body(ldvec3 position, ldvec3 velocity, long double m)
+        : pos(position), vel(velocity), mass(m) {
+        if (m <= 0) {
+            mass = 1.0L;
+        }
     }
 
     // Getters
-    glm::dvec3 getPos() const { return pos; }
-    glm::dvec3 getVec() const { return vec; }
-    double getMass() const { return mass; }
+    ldvec3 getPos() const { return pos; }
+    ldvec3 getVel() const { return vel; }
+    long double getMass() const { return mass; }
 
     // Setters
-    void setPos(const glm::dvec3& p) { pos = p; }
-    void setVec(const glm::dvec3& v) { vec = v; }
+    void setPos(const ldvec3& p) { pos = p; }
+    void setVel(const ldvec3& v) { vel = v; }
 
     // Update
-    //
+    void updatePos(ldvec3 p) {
+        pos += p;
+    }
+    void updateVel(ldvec3 v) {
+        vel += v;
+    }
+
     // Debug
     void print() const {
-        std::cout << "pos = " << pos.x << " " << pos.y << " " << pos.z << std::endl;
-        std::cout << "vec = " << vec.x << " " << vec.y << " " << vec.z << std::endl;
-        std::cout << "mass = " << mass << std::endl;
+        std::cout << std::setprecision(20) << "pos = " << pos.x << " " << pos.y << " " << pos.z << std::endl;
+        std::cout << std::setprecision(20) << "vel = " << vel.x << " " << vel.y << " " << vel.z << std::endl;
+        std::cout << std::setprecision(20) << "mass = " << mass << std::endl;
     }
 };
 
