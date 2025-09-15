@@ -72,27 +72,28 @@ int main(int, char**)
 	//double m1 = 1;
 	//double m2 = 2;
 
-	ldvec3 pos {0.0L, 0.0L, 0.0L};
-	ldvec3 v {0.0L, 0.0L, 0.0L};
-	long double m = 1;
+	ldvec3 pos1{-1.0L, -1.0L, -1.0L};
+	ldvec3 v1{0.0L, 0.0L, 0.0L};
+	long double m1 = 1;
 
-	celestial_body body1 = celestial_body(pos, v, m);
+	ldvec3 pos2{ 1.0L, 1.0L, 1.0L };
+	ldvec3 v2{ 1.0L, 1.0L, 1.0L };
+	long double m2 = 100;
+
+
+	celestial_body body1 = celestial_body(pos1, v1, m1);
+	celestial_body body2 = celestial_body(pos2, v2, m2);
+
+
+	long double dt = 0.0001;
 
 	body1.print();
+	body2.print();
 
-	//double dt = 0.0001;
+	step(body1, body2, dt, true);
 
-	//stepRK4(body1, body2, dt, true);
-
-	//pos1 = body1.getPos();
-	//pos2 = body2.getPos();
-	//vel1 = body1.getVel();
-	//vel2 = body2.getVel();
-
-	//std::cout << "pos1 = " << pos1.x << " " << pos1.y << " " << pos1.z << std::endl;
-	//std::cout << "pos2 = " << pos2.x << " " << pos2.y << " " << pos2.z << std::endl;
-	//std::cout << "vel1 = " << vel1.x << " " << vel1.y << " " << vel1.z << std::endl;
-	//std::cout << "vel2 = " << vel2.x << " " << vel2.y << " " << vel2.z << std::endl;
+	body1.print();
+	body2.print();
 
 	bool show = false;
 	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);

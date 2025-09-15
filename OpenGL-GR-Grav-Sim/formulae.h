@@ -14,4 +14,6 @@ ldvec3 PN_accel_cons(ldvec3 pos1, ldvec3 pos2, ldvec3 v1, ldvec3 v2, long double
 
 ldvec3 PN_accel_diss(ldvec3 pos1, ldvec3 pos2, ldvec3 v1, ldvec3 v2, long double m1, long double m2, bool years);
 
+void resolve_rel_accel(ldvec3& a_rel, ldvec3& a1, ldvec3& a2, long double m1, long double m2);
+
 #endif
