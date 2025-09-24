@@ -1,3 +1,5 @@
+#define M_PI        3.14159265358979323846264338327950288   /* pi */
+
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
@@ -11,6 +13,8 @@
 #include "integration.h"
 
 #include <iostream>
+#include <cmath>
+#include <fstream>
 
 // Intialising main functions ~ Informs the compiler the functions exist pretty much
 static void glfw_error_callback(int error, const char* description);
@@ -72,32 +76,34 @@ int main(int, char**)
 	//double m1 = 1;
 	//double m2 = 2;
 
-	ldvec3 pos1{-1.0L, -1.0L, -1.0L};
+	ldvec3 pos1{0.0L, 0.0L, 0.0L};
 	ldvec3 v1{0.0L, 0.0L, 0.0L};
 	long double m1 = 1;
 
-	ldvec3 pos2{ 1.0L, 1.0L, 1.0L };
-	ldvec3 v2{ 1.0L, 1.0L, 1.0L };
-	long double m2 = 100;
+	ldvec3 pos2{ 0.8L, 0.0L, 0.0L };
+	ldvec3 v2{ 0.0L, 1.5 * M_PI, 0.0L };
+	long double m2 = 3.003e-6;
 
 
-	celestial_body body1 = celestial_body(pos1, v1, m1);
-	celestial_body body2 = celestial_body(pos2, v2, m2);
+	celestial_body sun = celestial_body(pos1, v1, m1);
+	celestial_body earth = celestial_body(pos2, v2, m2);
 
+	RK45_integration integrator = RK45_integration(1e-8, 1e-10, 0.05);
 
-	long double dt = 0.0001;
-
-	body1.print();
-	body2.print();
-
-	step(body1, body2, dt, true);
-
-	body1.print();
-	body2.print();
-
-	bool show = false;
+	bool show = true;
 	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);
 
+
+	std::ofstream csv_loop_log("rk45_debug_loop_stats.csv", std::ios::trunc);
+	std::ofstream csv_debug_log("rk45_debug_log.csv", std::ios::trunc);
+	csv_loop_log << "loop num, max err, min err, sum err, err_count, mean h, attempts, accepts, rejects, max con rejects\n"; // Header of the loop stats
+	csv_debug_log << "loop num, t, h, err, next_h\n";
+
+	int loop_num = 0;
+	long double loop_t = 0.0L;
+	long double sim_t = 0.0L;
+
+	int FPS = 60;
 	// Graphics Loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -117,8 +123,75 @@ int main(int, char**)
 			ImGui::End();
 		}
 
-		// render processing here
-		// ...
+		long double t_final = 1.0L, h_total = 0.0L;
+		long double min_err = 0.0L, max_err = 0.0L, sum_err = 0.0L;
+		int attempts = 0, accepts = 0, con_retries = 0, rejected = 0, err_count = 0, max_con_retries = 0;
+		while (loop_t < 1.0L/FPS) {
+			debug_values result = integrator.step(sun, earth, loop_t);
+			bool accepted = result.accepted;
+			long double h_attempt = result.attempt_h;
+			long double err = result.err_norm_passed;
+			long double next_h = result.next_h;
+			h_total += h_attempt;
+
+			if (accepted) {
+				min_err = std::min(min_err, err);
+				max_err = std::max(max_err, err);
+				sum_err += err;
+				err_count++;
+				attempts++;
+				accepts++;
+				con_retries = 0;
+				std::cout << "[ACCEPT] t = " << loop_t 
+						  << ", h = " << h_attempt 
+						  << ", err = " << err 
+						  << ", adapt_h = " << next_h 
+						  << std::endl;
+			}
+			else {
+				attempts++;
+				rejected++;
+				con_retries++;
+				max_con_retries = std::max(max_con_retries, con_retries);
+				std::cout << "[REJECT] t = " << loop_t 
+						  << ", h = " << h_attempt 
+						  << ", err = " << err 
+						  << std::endl;
+			}
+			std::cout << "t = " << loop_t << std::endl;
+			std::cout << "h = " << h_attempt << std::endl;
+			csv_debug_log << loop_num << ", "
+						  << loop_t << ", " 
+						  << h_attempt << ", " 
+						  << err << ", " 
+						  << next_h 
+						  << "\n";
+		}
+		loop_t = 0;
+		loop_num++;
+		std::cout << "[Error Stats] max_err = " << max_err
+				  << ", min_err = " << min_err
+				  << ", sum_err = " << sum_err
+				  << ", err_count = " << err_count
+				  << "mean h = " << h_total / attempts
+				  << std::endl;
+		std::cout << "[Attempt Stats] attempts = " << attempts 
+				  << ", accepted = " << accepts 
+				  << ", rejected = " << rejected 
+				  << " max consecutive retries = " << max_con_retries
+				  << std::endl;
+		csv_loop_log << loop_num << ", "
+					 << max_err << ", "
+					 << min_err << ", "
+					 << sum_err << ", "
+					 << err_count << ", "
+					 << h_total / attempts << ", "
+					 << attempts << ", "
+					 << accepts << ", "
+					 << rejected << ", "
+					 << max_con_retries
+					 << "\n";
+
 
 		// Imgui Render
 		ImGui::Render();
@@ -128,6 +201,8 @@ int main(int, char**)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+	csv_loop_log.close();
+	csv_debug_log.close();
 	// As soon as the window is set to close, the while loop is passed and then Imgui and glfw is terminated
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
