@@ -63,24 +63,16 @@ ldvec3 PN_acceleration(ldvec3 pos1, ldvec3 pos2, ldvec3 v1, ldvec3 v2, long doub
 
 	// 1PN Terms
 	// ((4 + 2 * n_smr)Gm/r - (1 + 3 * n_smr) * v^2 + 3/2 * n_smr * r_dot^2) * n_hat + (4 - 2 * n_smr) * r_dot * v_bold
-	ldvec3 A_1PN = (( ((4.0L + (2.0L * n_smr)) * mu_r) - ((1.0L + (3.0L * n_smr)) * v_2) + (1.5L * (n_smr * r_dot2))) * n_hat) + (((4.0L - (2.0L * n_smr)) * r_dot) * v_bold);
+	ldvec3 A_1PN = (( ((4.0L + (2.0L * n_smr)) * mu_r) 
+			- ((1.0L + (3.0L * n_smr)) * v_2)
+			+ (1.5L * (n_smr * r_dot2))) * n_hat) 
+			+ (((4.0L - (2.0L * n_smr)) * r_dot) * v_bold);
 	//std::cout << std::setprecision(20) << "A_1PN = " << A_1PN.x << " " << A_1PN.y << " " << A_1PN.z << std::endl;
 
 	// 2PN Terms
 	const long double v_4 = v_2 * v_2;
 	const long double r_dot4 = r_dot2 * r_dot2;
 	const long double mu_r2 = mu_r * mu_r;
-
-	ldvec3 A_2PN_n = ((0.75L * (12.0L + 29.0L * n_smr) * (mu_r2))
-			+ (n_smr * (3.0L - 4.0L * n_smr) * v_4)
-			+ ((15.0L / 8.0L) * n_smr * (1.0L - 3.0L * n_smr) * r_dot4)
-			- (1.5L * n_smr * (3.0L - 4.0L * n_smr) * v_2 * r_dot2)
-			- (0.5L * n_smr * (13.0L - 4.0L * n_smr) * mu_r * v_2)
-			- (2.0L + (25.0L * n_smr) + 2.0L * (n_smr * n_smr)) * mu_r * r_dot2) * n_hat;
-
-	ldvec3 A_2PN_v = ((n_smr * (15.0L + 4.0L * n_smr) * v_2 * r_dot)
-		- (1.5L * n_smr * (3.0L + 2.0L * n_smr) * r_dot2 * r_dot)
-		- (0.5L * (4.0L + (41.0L * n_smr) + 8.0L * (n_smr * n_smr)) * mu_r * r_dot)) * v_bold;
 
 	//std::cout << std::setprecision(20) << "A_2PN_n_1 = " << A_2PN_n_1 << std::endl;
 	//std::cout << std::setprecision(20) << "A_2PN_n_2 = " << A_2PN_n_2 << std::endl;
@@ -95,7 +87,17 @@ ldvec3 PN_acceleration(ldvec3 pos1, ldvec3 pos2, ldvec3 v1, ldvec3 v2, long doub
 	//std::cout << std::setprecision(20) << "A_2PN_v = " << A_2PN_v.x << " " << A_2PN_v.y << " " << A_2PN_v.z << std::endl;
 	//std::cout << std::setprecision(20) << "A_2PN = " << A_2PN.x << " " << A_2PN.y << " " << A_2PN.z << std::endl;
 
-	ldvec3 A_2PN = A_2PN_n + A_2PN_v;
+	ldvec3 A_2PN = ((0.75L * (12.0L + 29.0L * n_smr) * (mu_r2))
+		+ (n_smr * (3.0L - 4.0L * n_smr) * v_4)
+		+ ((15.0L / 8.0L) * n_smr * (1.0L - 3.0L * n_smr) * r_dot4)
+		- (1.5L * n_smr * (3.0L - 4.0L * n_smr) * v_2 * r_dot2)
+		- (0.5L * n_smr * (13.0L - 4.0L * n_smr) * mu_r * v_2)
+		- (2.0L + (25.0L * n_smr) + 2.0L * (n_smr * n_smr)) * mu_r * r_dot2) * n_hat 
+		+ ((n_smr * (15.0L + 4.0L * n_smr) * v_2 * r_dot)
+		- (1.5L * n_smr * (3.0L + 2.0L * n_smr) * r_dot2 * r_dot)
+		- (0.5L * (4.0L + (41.0L * n_smr) + 8.0L * (n_smr * n_smr)) * mu_r * r_dot)) * v_bold;
+
+
 	
 	// 2.5PN
 	// Responsible for the orbital decay caused by graviational radiation
