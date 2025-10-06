@@ -29,6 +29,7 @@ public:
     // Setters
     void setPos(const ldvec3& p) { pos = p; }
     void setVel(const ldvec3& v) { vel = v; }
+    void setMass(const long double& m) { mass = m; }
 
     // Update
     void updatePos(ldvec3 p) {

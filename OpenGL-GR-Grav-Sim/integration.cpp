@@ -9,10 +9,6 @@
 #include <iomanip>
 #include <cmath>
 
-// Type Definitions for custom GLM maths objects
-using ldvec3 = glm::tvec3<long double>;
-using ldmat43 = glm::mat<4, 3, long double>;
-
 // Dormand–Prince coefficients
 // -------------------------------------------------------------------------------------------
 // t Step Constants
@@ -37,39 +33,16 @@ static const long double b1s_const = 5179.0L / 57600.0L, b3s_const = 7571.0L / 1
 RK45_integration::RK45_integration(long double atol, long double rtol, long double initial_dt) 
 	: atol(atol), rtol(rtol), h(initial_dt) {}
 
-debug_values RK45_integration::step(celestial_body& b1, celestial_body& b2, long double& t) {
-	b1.print();
-	b2.print();
-
-	ldmat43 y = pack_state(b1, b2);
-
-	debug_values result = RK45_step(y, t, RK45_integration::h, b1.getMass(), b2.getMass());
-
-	y = result.state_y;
-
-	unpack_state(y, b1, b2);
+debug_values RK45_integration::step(mathState backbuf) {
+	debug_values result = RK45_step(backbuf.y, backbuf.physics_time, RK45_integration::h, backbuf.m1, backbuf.m2);
 
 	return result;
-
 }
 
+bool RK45_integration::getDebug() { return RK45_integration::debug; }
 
-ldmat43 RK45_integration::pack_state(const celestial_body& b1, const celestial_body& b2) {
-	ldmat43 state;
-	state[0] = b1.getPos();
-	state[1] = b1.getVel();
-	state[2] = b2.getPos();
-	state[3] = b2.getVel();
+void RK45_integration::setDebug(bool update) { RK45_integration::debug = update; }
 
-	return state;
-}
-
-void RK45_integration::unpack_state(const ldmat43& state, celestial_body& b1, celestial_body& b2) {
-	b1.setPos(state[0]);
-	b1.setVel(state[1]);
-	b2.setPos(state[2]);
-	b2.setVel(state[3]);
-}
 
 ldmat43 RK45_integration::derivatives(long double t, ldmat43& state, long double m1, long double m2) {
 	ldvec3 pos1 = state[0];
@@ -108,7 +81,7 @@ long double RK45_integration::calc_err_norm(const ldmat43& y, const ldmat43& y4,
 	return std::sqrt(sum / count);
 }
 
-debug_values RK45_integration::RK45_step(ldmat43& y, long double& t, long double& h, long double m1, long double m2) {
+debug_values RK45_integration::RK45_step(ldmat43 y, long double t, long double& h, long double m1, long double m2) {
 	const long double safety = 0.9L;
 	const long double minAdapt = 0.1L, maxAdapt = 5.0L;
 
@@ -157,24 +130,33 @@ debug_values RK45_integration::RK45_step(ldmat43& y, long double& t, long double
 		long double adapt = safety * std::pow(1.0L / (err_norm + 1e-16L), 0.2);
 		adapt = std::min(std::max(adapt, minAdapt), maxAdapt);
 
-		debug_values result = {
-			y, true, h, err_norm, h * adapt
+		result_values result = {
+			y, t, true
+		};
+
+		debug_values result_debug = {
+			result, h, err_norm, h * adapt
 		};
 
 		h *= adapt;
 
-		return result;
+		return result_debug;
+
 	}
 	else {
 		long double adapt = safety * std::pow(1.0L / (err_norm + 1e-16L), 0.2);
 		adapt = std::min(std::max(adapt, minAdapt), maxAdapt);
 
-		debug_values result = {
-			y, false, h, err_norm, h * adapt
+		result_values result = {
+			y, t, false
+		};
+
+		debug_values result_debug = {
+			result, h, err_norm, h * adapt
 		};
 
 		h *= adapt;
 
-		return result;
+		return result_debug;
 	}
 }
