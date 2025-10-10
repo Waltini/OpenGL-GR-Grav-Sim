@@ -41,5 +41,12 @@
     <ClInclude Include="integration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shaders_c.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shader.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shader.vs" />
   </ItemGroup>
 </Project>
