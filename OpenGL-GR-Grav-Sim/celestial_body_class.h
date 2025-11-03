@@ -1,49 +1,51 @@
 #ifndef celestial_body_class_H
 #define celestial_body_class_H
+#define M_PI        3.14159265358979323846264338327950288   /* pi */
 
 #include <glm/glm.hpp>
 #include <iostream>
 #include <iomanip>
+#include <cmath>
 
-using ldvec3 = glm::tvec3<long double>;
+using dvec3 = glm::dvec3;
 
 class celestial_body {
 private:
-    ldvec3 pos;
-    ldvec3 vel;
-    long double mass;
+    dvec3 pos;
+    dvec3 vel;
+    double mass;
+    double radius = calcSphereRadius(mass);
+
+    double calcSphereRadius(double M) {
+        return ((5 * 10e2) * std::cbrt((M - 3.003e-6) / (5 * M_PI * 9247304))) + 0.5;
+    }
+
 public:
     // Constructor
-    celestial_body(ldvec3 position, ldvec3 velocity, long double m)
+    celestial_body(dvec3 position, dvec3 velocity, double m)
         : pos(position), vel(velocity), mass(m) {
         if (m <= 0) {
-            mass = 1.0L;
+            mass = 1.0;
         }
     }
 
     // Getters
-    ldvec3 getPos() const { return pos; }
-    ldvec3 getVel() const { return vel; }
-    long double getMass() const { return mass; }
+    dvec3 getPos() const { return pos; } // Returns position of the object
+    dvec3 getVel() const { return vel; } // Returns velocity of the object
+    double getMass() const { return mass; } // Returns mass of the object
+    double getRadius() const { return radius; } // Returns radius of the object
 
     // Setters
-    void setPos(const ldvec3& p) { pos = p; }
-    void setVel(const ldvec3& v) { vel = v; }
-    void setMass(const long double& m) { mass = m; }
-
-    // Update
-    void updatePos(ldvec3 p) {
-        pos += p;
-    }
-    void updateVel(ldvec3 v) {
-        vel += v;
-    }
+    void setPos(const dvec3& p) { pos = p; } // Sets the position of the object (used by the buffer box front buffer updating, and ImGUI edit applying)
+    void setVel(const dvec3& v) { vel = v; } // Sets the velocity of the object (used by the buffer box front buffer updating, and ImGUI edit applying)
+    void setMass(const double& m) { mass = m; } // Sets the mass of the object (used only by ImGUI edit applying
 
     // Debug
     void print() const {
         std::cout << std::setprecision(20) << "pos = " << pos.x << " " << pos.y << " " << pos.z << std::endl;
         std::cout << std::setprecision(20) << "vel = " << vel.x << " " << vel.y << " " << vel.z << std::endl;
         std::cout << std::setprecision(20) << "mass = " << mass << std::endl;
+        std::cout << std::setprecision(20) << "radius = " << radius << std::endl;
     }
 };
 

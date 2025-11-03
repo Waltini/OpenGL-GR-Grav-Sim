@@ -8,10 +8,10 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "celestial_body_class.h"
 
-using ldvec3 = glm::tvec3<long double>;
+using dvec3 = glm::dvec3;
 
-ldvec3 PN_acceleration(ldvec3 pos1, ldvec3 pos2, ldvec3 v1, ldvec3 v2, long double m1, long double m2);
+dvec3 PN_acceleration(dvec3 pos1, dvec3 pos2, dvec3 v1, dvec3 v2, double m1, double m2);
 
-void resolve_rel_accel(ldvec3& a_rel, ldvec3& a1, ldvec3& a2, long double m1, long double m2);
+void resolve_rel_accel(dvec3& a_rel, dvec3& a1, dvec3& a2, double m1, double m2);
 
 #endif

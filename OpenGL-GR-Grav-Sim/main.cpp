@@ -8,33 +8,27 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <SDL2/SDL_timer.h>
-#include "celestial_body_class.h"
 #include "integration.h"
 #include "shaders_c.h"
+#include "celestial_body_class.h"
 
 #include <iostream>
 #include <cmath>
 #include <fstream>
 
+#include <queue>
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
 #include <chrono>
 #include <thread>
 
-// Intialising main functions ~ Informs the compiler the functions exist pretty much
-static void glfw_error_callback(int error, const char* description);
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void process_input(GLFWwindow* window);
 
 int SCR_WIDTH = 600;
 int SCR_HEIGHT = 800;
 
-const unsigned int PixelsPerUnitLength = 150;
-
-using ldvec3 = glm::tvec3<long double>;
-using ldmat43 = glm::mat<4, 3, long double>;
+using dvec3 = glm::dvec3;
+using dmat43 = glm::mat<4, 3, double>;
 
 std::atomic<bool> pause = false;
 std::atomic<bool> halted = false;
@@ -48,22 +42,55 @@ struct clsState {
 	celestial_body* b2;
 };
 
+struct render_object {
+	dvec3 pos;
+	dvec3 vel;
+	double mass;
+	int body_num;
+
+	// Operations
+	bool operator==(const render_object& other) const { // Equality Operator
+		return pos == other.pos && vel == other.vel && mass == other.mass; // Compares each composite part ensuring all are similar
+	}
+
+	bool operator!=(const render_object& other) const { // Inequality Operator
+		return !(*this == other); // Utilises the equality operator
+	}
+};
+
+// Intialising main functions ~ Informs the compiler the functions exist pretty much
+static void glfw_error_callback(int error, const char* description);
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void process_input(GLFWwindow* window, render_object& b1, render_object& b2);
+void mouse_callback(GLFWwindow* window, int button, int action, int mods);
+
+// Formatting Functions
+enum infields {
+	pos,
+	vel,
+	mass
+};
+
+void ImGui_Input_Fields(enum infields intp_type, render_object& edit_obj);
+
 class buffer_box {
 private:
-	mathState backbuffer;
-	clsState frontbuffer;
+	mathState backBuffer; // The back buffer. Used for the background mathematics and the buffer used by the physics thread
+	clsState frontBuffer; // The front buffer. Used for displaying the position of the bodies and the buffer used by the rendering function within the main thread
+	glm::vec2 mousePos; // The mouse buffer. Stores the location of the most recent mouse input
+	int GUI_ID; // The GUI ID. Informs the rendering what gui (in context of the bodies) to display at a given moment
 
 	void bufferSet(celestial_body& body1, celestial_body& body2) {
 		// Constructor Function
-		frontbuffer.b1 = &body1;
-		frontbuffer.b2 = &body2;
-		backbuffer.y[0] = body1.getPos();
-		backbuffer.y[1] = body1.getVel();
-		backbuffer.y[2] = body2.getPos();
-		backbuffer.y[3] = body2.getVel();
-		backbuffer.m1 = body1.getMass();
-		backbuffer.m2 = body2.getMass();
-		backbuffer.physics_time = 0.0L;
+		frontBuffer.b1 = &body1;
+		frontBuffer.b2 = &body2;
+		backBuffer.y[0] = body1.getPos();
+		backBuffer.y[1] = body1.getVel();
+		backBuffer.y[2] = body2.getPos();
+		backBuffer.y[3] = body2.getVel();
+		backBuffer.m1 = body1.getMass();
+		backBuffer.m2 = body2.getMass();
+		backBuffer.physics_time = 0.0;
 	}
 public:
 	buffer_box(celestial_body& body1, celestial_body& body2) {
@@ -72,9 +99,9 @@ public:
 
 	void changeBuffers() {
 		// Copies Backbuffer into Frontbuffer
-		ldmat43 y = backbuffer.y;
-		celestial_body& b1 = *frontbuffer.b1;
-		celestial_body& b2 = *frontbuffer.b2;
+		dmat43 y = backBuffer.y;
+		celestial_body& b1 = *frontBuffer.b1;
+		celestial_body& b2 = *frontBuffer.b2;
 
 		b1.setPos(y[0]);
 		b1.setVel(y[1]);
@@ -82,37 +109,39 @@ public:
 		b2.setVel(y[3]);
 	}
 
-	mathState readBackBuffer() const { return backbuffer; } // returns the back buffer
-	clsState readFrontBuffer() const { return frontbuffer; } // returns the back buffer
+	mathState readBackBuffer() const { return backBuffer; } // returns the back buffer
+	clsState readFrontBuffer() const { return frontBuffer; } // returns the back buffer
 
-	void physicsStateUpdate(const ldmat43 state, const long double physics_time) {
-		backbuffer.y = state;
-		backbuffer.physics_time = physics_time;
+	void physicsStateUpdate(const dmat43 state) {
+		backBuffer.y = state;
 	} // Updates the backbuffer with a new state and new time
 
-	void applyEdits(ldmat43 dim_edits, long double m1_edit, long double m2_edit) { // Update the back buffer and front buffer with a completely new state / simulation
+	void applyEdits(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) { // Update the back buffer and front buffer with a completely new state / simulation
+		// Pack Matrix
+		dmat43 dim_edits = { pos1_edit, vel1_edit, pos2_edit, vel2_edit };
+		
 		//Back Buffer Edits
-		backbuffer.y = dim_edits; // Apply dimensional edits to the backbuffer
-		backbuffer.m1 = m1_edit; // Apply the mass edits of b1 to the backbuffer
-		backbuffer.m2 = m2_edit; // Apply the mass edits of b2 to the backbuffer
+		backBuffer.y = dim_edits; // Apply dimensional edits to the backbuffer
+		backBuffer.m1 = m1_edit; // Apply the mass edits of b1 to the backbuffer
+		backBuffer.m2 = m2_edit; // Apply the mass edits of b2 to the backbuffer
 
 		//Front Buffer Edits
-		celestial_body& b1 = *frontbuffer.b1; // Dereference b1
-		celestial_body& b2 = *frontbuffer.b2; // Dereference b2
+		celestial_body& b1 = *frontBuffer.b1; // Dereference b1
+		celestial_body& b2 = *frontBuffer.b2; // Dereference b2
 
 		b1.setMass(m1_edit);
 		b2.setMass(m2_edit);
 
-		b1.setPos(dim_edits[0]);
-		b1.setVel(dim_edits[1]);
+		b1.setPos(pos1_edit);
+		b1.setVel(vel1_edit);
 
-		b2.setPos(dim_edits[2]);
-		b2.setVel(dim_edits[3]);
+		b2.setPos(pos2_edit);
+		b2.setVel(vel2_edit);
 	}
 
 	// Debug Functions
 	void debugBackBuffer() const {
-		ldmat43 y = backbuffer.y;
+		dmat43 y = backBuffer.y;
 
 		for (int i = 0; i < 4; i = i + 2) {
 			std::cout << "bckbuf pos = ";
@@ -126,61 +155,95 @@ public:
 			}
 			std::cout << "\n";
 		}
-		std::cout << std::setprecision(20) << "bckbuf m1 = " << backbuffer.m1 << "\n";
-		std::cout << std::setprecision(20) << "bckbuf m2 = " << backbuffer.m2 << "\n";
+		std::cout << std::setprecision(20) << "bckbuf m1 = " << backBuffer.m1 << "\n";
+		std::cout << std::setprecision(20) << "bckbuf m2 = " << backBuffer.m2 << "\n";
 	}
 
 	void debugFrontBuffer() const {
-		celestial_body& b1 = *frontbuffer.b1;
-		celestial_body& b2 = *frontbuffer.b2;
+		celestial_body& b1 = *frontBuffer.b1;
+		celestial_body& b2 = *frontBuffer.b2;
 
 		b1.print();
 		b2.print();
 	}
+
+	glm::vec2 getMousePos() const { return mousePos; }
+	void setMousePos(const glm::vec2 position) { mousePos = position; }
 };
 
-int physics_thread(GLFWwindow* window, RK45_integration& integrator, buffer_box& bufbx, float sim_speed) {
+// Initial State
+// Body 1 Characteristics
+dvec3 pos1{ 0.0, 0.0, 0.0 };
+dvec3 v1{ 0.0, 0.0, 0.0 };
+double m1 = 1;
+
+// Body 2 Characteristics
+dvec3 pos2{ 1.0, 0.0, 0.0 };
+dvec3 v2{ 0.0, 2.0 * M_PI, 0.0 };
+double m2 = 3.003e-6;
+
+// Creates the celestial body objects
+celestial_body body1(pos1, v1, m1);
+celestial_body body2(pos2, v2, m2);
+
+buffer_box bufbx = buffer_box(body1, body2);
+
+int physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim_speed) {
+	double ct, lt = 0.0, accum_t = 0.0;
+	double physics_dt = 0.033;
+	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
+	integrate_result result(mat, 0.0, 0, 0, 0, 0.0);
+
+	int count = 0, accepts = 0, rejects = 0;
+
 	while (!glfwWindowShouldClose(window)) {
-		halted = true;
-		H_cv.notify_one();
+		halted = true; // Momentarily updates the halted variable so it may be caught if the ImGUI pause function has started
+		H_cv.notify_one(); // Notifies the rendering function IF IT IS WAITING, if it's not waitng nothing happens and this just goes onto the next step
 
-		std::unique_lock<std::mutex> lock(mtx);
-		P_cv.wait(lock, [] { return !pause; });
-		lock.unlock();
+		double lock_time_start = glfwGetTime();
 
-		halted = false;
+		std::unique_lock<std::mutex> lock_unique(mtx);
+		P_cv.wait(lock_unique, [] { return !pause; }); // Mutex unqiue_lock checks if the physics thread has been set to pause
+		lock_unique.unlock(); // Unlocks unique_lock
 
-		mathState BackBuffer = bufbx.readBackBuffer();
+		double lock_time_end = glfwGetTime();
+		double lock_duration = lock_time_end - lock_time_start;
 
-		debug_values physics_step = integrator.step(BackBuffer);
-		result_values physics_result = physics_step.result;
+		halted = false; // After checking that it doesn't need to halted it then sets the halted variable to false
 
-		if (integrator.getDebug()) {
-			if (physics_result.accepted) {
-				std::cout << "[ACCEPTED]" << std::endl;
-				std::cout << "[attempt_h] " << physics_step.attempt_h << std::endl;
-				bufbx.physicsStateUpdate(physics_result.state_y, physics_result.time_update);
+		mathState BackBuffer = bufbx.readBackBuffer(); // Reads the current backbuffer
 
-				std::lock_guard<std::mutex> lock(mtx);
-				bufbx.changeBuffers();
-			}
+		ct = glfwGetTime();
+		double delta = ct - lt - lock_duration; // change in time since last
+		lt = ct;
+		accum_t += delta;
+
+		while (accum_t >= physics_dt) {
+			accum_t -= physics_dt;
+			result = integrator.step(BackBuffer, physics_dt); // Steps through the physics given the current state within the backbuffer
+
+			bufbx.physicsStateUpdate(result.state_y);
+
+			std::lock_guard<std::mutex> lock(mtx);
+			bufbx.changeBuffers();
 		}
-		else {
-			if (physics_result.accepted) {
-				std::cout << "[ACCEPTED]" << std::endl;
-				std::cout << "[attempt_h] " << physics_step.attempt_h << std::endl;
-				bufbx.physicsStateUpdate(physics_result.state_y, physics_result.time_update);
 
-				std::lock_guard<std::mutex> lock(mtx);
-				bufbx.changeBuffers();
-			}
-		}
-		
+		count += result.count;
+		accepts += result.accepts;
+		rejects += result.rejects;
+
+		//std::cout << "accept ratio = " << accepts / count << std::endl;
+		//std::cout << "reject ratio = " << rejects / count << std::endl;
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(33));
 	}
+
 	return 0;
 }
 
-int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool show, buffer_box& bufbx, const char* glsl_version) {
+int render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const char* glsl_version) {
+	int GUI_ID = 0;
+
 	// GLFW Set
 	glfwMakeContextCurrent(window); // sets the context of the window to current on the thread
 
@@ -201,9 +264,9 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 		return -1;
 	}
 
-	Shader myShader("shader.vs", "shader.fs");
+	Shader myShader("shader.vs", "shader.fs"); // Points my shader class to my vertex and fragment shader files
 
-	float vertices[] = {
+	float vertices[] = { // Creates a cube
 	-0.5f, -0.5f, -0.5f,
 	 0.5f, -0.5f, -0.5f,
 	 0.5f,  0.5f, -0.5f,
@@ -247,6 +310,7 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 	-0.5f,  0.5f, -0.5f
 	};
 
+	// Graphical Buffers and Arrays
 	unsigned int VBO, VAO;
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -261,10 +325,38 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
+	// Render Objects
+	render_object body1, body2, body1_edit, body2_edit;
+	body1.body_num = 1; body1_edit.body_num = 1;
+	body2.body_num = 2; body2_edit.body_num = 2;
+
+	bool edit_f = false; // editing flag to indicate if the user is editing properties
+
 	while (!glfwWindowShouldClose(window))
 	{
+		// Front Buffer Snapshot
+		clsState snapshot = bufbx.readFrontBuffer(); // grabs the pointers for the celestial body class objects
+		celestial_body b1 = *snapshot.b1; // De-referenced Body 1
+		celestial_body b2 = *snapshot.b2; // De-referenced Body 2
+
+		// Snapshot segmenting
+		body1.pos = b1.getPos();
+		body1.vel = b1.getVel();
+		body1.mass = b1.getMass();
+		body2.pos = b2.getPos();
+		body2.vel = b2.getVel();
+		body2.mass = b2.getMass();
+		if (!edit_f) {
+			body1_edit.pos = body1.pos;
+			body1_edit.vel = body1.vel;
+			body1_edit.mass = body1.mass;
+			body2_edit.pos = body2.pos;
+			body2_edit.vel = body2.vel;
+			body2_edit.mass = body2.mass;
+		}
+
 		// Input processing
-		process_input(window);
+		process_input(window, body1, body2);
 		glClearColor(background.x, background.y, background.z, background.w);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -282,14 +374,30 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 			}
 			if (ImGui::Button("Unpause")) {
 				pause = false;
+				if (edit_f) {
+					edit_f = false;
+				}
 				P_cv.notify_one();
 			}
+			ImGui_Input_Fields(pos, body1_edit);
+			ImGui_Input_Fields(vel, body1_edit);
+			ImGui_Input_Fields(mass, body1_edit);
+			ImGui_Input_Fields(pos, body2_edit);
+			ImGui_Input_Fields(vel, body2_edit);
+			ImGui_Input_Fields(mass, body2_edit);
+			if (body1_edit != body1 || body2_edit != body2) {
+				edit_f = true;
+			}
+
+			if (edit_f) {
+				pause = true;
+				P_cv.notify_one();
+
+				bufbx.applyEdits(body1_edit.pos, body1_edit.vel, body2_edit.pos, body2_edit.vel, body1_edit.mass, body2_edit.mass);
+			}
+
 			ImGui::End();
 		}
-
-		clsState snapshot = bufbx.readFrontBuffer(); // grabs the pointers for the celestial body class objects
-		celestial_body b1 = *snapshot.b1; // De-referenced Body 1
-		celestial_body b2 = *snapshot.b2; // De-referenced Body 2
 
 		glBindVertexArray(VAO);
 
@@ -308,8 +416,7 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 
 		// Body 1
 		glm::mat4 model_1 = glm::mat4(1.0f);
-		b1.print();
-		glm::vec3 pos1 = (glm::vec3)b1.getPos(); // grabs the current position of Body 1
+		glm::vec3 pos1 = (glm::vec3)body1.pos; // grabs the current position of Body 1
 		model_1 = glm::translate(model_1, pos1); // translates model matrix using the current position of Body 1
 		myShader.setMat4("model", model_1); // sets the calculated model matrix for Body 1 to the model matrix called within the vertex shader
 
@@ -317,7 +424,7 @@ int rendering_thread(GLFWwindow* window, int FPS, glm::vec4 background, bool sho
 
 		// Body 2
 		glm::mat4 model_2 = glm::mat4(1.0f);
-		glm::vec3 pos2 = (glm::vec3)b2.getPos(); // grabs the current position of Body 2
+		glm::vec3 pos2 = (glm::vec3)body2.pos; // grabs the current position of Body 2
 		model_2 = glm::translate(model_2, pos2); // translates model matrix using the current position of Body 2
 		myShader.setMat4("model", model_2); // sets the calculated model matrix for Body 2 to the model matrix called within the vertex shader
 
@@ -368,67 +475,82 @@ int main(int, char**)
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); // sets the framebuffer size callback GLFW will use to the one I programmed
 	glfwSetErrorCallback(glfw_error_callback); // sets the error callback GLFW will use to the one I programmed
 
-	// Body 1 Characteristics
-	ldvec3 pos1{ 0.0L, 0.0L, 0.0L };
-	ldvec3 v1{ 0.0L, 0.0L, 0.0L };
-	long double m1 = 1;
-
-	// Body 2 Characteristics
-	ldvec3 pos2{ 1.0L, 0.0L, 0.0L };
-	ldvec3 v2{ 0.0L, 2.0L * M_PI, 0.0L };
-	long double m2 = 1;
-
-	celestial_body sun(pos1, v1, m1);
-	celestial_body earth(pos2, v2, m2);
-
 	RK45_integration integrator(1e-8, 1e-10, 0.05);
 
 	bool show = true;
 	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);
 
-	buffer_box bufbx = buffer_box(sun, earth);
-
-	bufbx.debugBackBuffer();
-	bufbx.debugFrontBuffer();
-
-	//physics_thread(window, integrator, bufbx);
-
-	bufbx.debugBackBuffer();
-	bufbx.debugFrontBuffer();
-
 	int FPS = 60;
 
-	//rendering_thread(window, FPS, background, show, bufbx);
-
-	integrator.setDebug(true);
+	integrator.setDebug(false);
 
 	// Threading
-	std::thread p(physics_thread, window, std::ref(integrator), std::ref(bufbx), 1.0f);
-	//std::thread r(rendering_thread, window, FPS, background, show, std::ref(bufbx), glsl_version);
+	std::thread p(physics_thread, window, std::ref(integrator), 1.0f);
 
-	rendering_thread(window, FPS, background, show, bufbx, glsl_version);
+	render(window, FPS, background, show, glsl_version);
 
 	p.join();
-	//r.join();
-
 };
 
 
 
 // Function definitions ~ kept below the main loop for formatting
-static void glfw_error_callback(int error, const char* description)
-{
+static void glfw_error_callback(int error, const char* description) {
 	fprintf(stderr, "GLFW ERROR %d: %s\n", error, description); // formatted print ~ using the format of a C error document it prints GLFW ERROR then its error number and then the description
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glfwGetWindowSize(window, &SCR_HEIGHT, &SCR_WIDTH);
 	glViewport(0, 0, width, height); // Details how OpenGL should map its NDC (Normalised Device Coordinates) to the display
 }
 
-void process_input(GLFWwindow* window)
-{
+void process_input(GLFWwindow* window, render_object& b1, render_object& b2) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // Terminate command
 		glfwSetWindowShouldClose(window, true); // Causes while loop to break
+}
+
+void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS) {
+		double xpos, ypos;
+
+		glfwGetCursorPos(window, &xpos, &ypos); // grabs the position of cursour
+
+		bufbx.setMousePos((glm::vec2)(xpos, ypos));
+	}
+}
+
+void ImGui_Input_Fields(infields intp_type, render_object& edit_obj) {
+	ImGui::PushItemWidth(150);
+
+	switch (intp_type) {
+	case pos:
+	case vel: {
+		glm::dvec3* vec = (intp_type == pos) ? &edit_obj.pos : &edit_obj.vel; // selects which vector to use
+		const char* label_name = (intp_type == pos) ? "Position" : "Velocity"; // selects the display label for the vector input fields
+
+		char label_x[64], label_y[64], label_z[64];
+		snprintf(label_x, sizeof(label_x), "##b%i_%s_x", edit_obj.body_num, label_name); // reformats ID label_x to contain the relevant information
+		snprintf(label_y, sizeof(label_y), "##b%i_%s_y", edit_obj.body_num, label_name); // reformats ID label_y to contain the relevant information
+		snprintf(label_z, sizeof(label_z), "##b%i_%s_z", edit_obj.body_num, label_name); // reformats ID label_z to contain the relevant information
+
+		ImGui::Text("%s", label_name); // display label
+		ImGui::SameLine(); ImGui::InputDouble(label_x, &vec->x, 0.01, 1.0, "%e"); // input field for the x component of the vector
+		ImGui::SameLine(); ImGui::InputDouble(label_y, &vec->y, 0.01, 1.0, "%e"); // input field for the y component of the vector
+		ImGui::SameLine(); ImGui::InputDouble(label_z, &vec->z, 0.01, 1.0, "%e"); // input field for the z component of the vector
+		break;
+	}
+
+	case mass: {
+		char label_m[64];
+		snprintf(label_m, sizeof(label_m), "##b%i_mass", edit_obj.body_num); // reformats the ID label mass to contain the relevant information
+		ImGui::Text("Mass");
+		ImGui::SameLine(); ImGui::InputDouble(label_m, &edit_obj.mass, 0.01, 1.0, "%e"); // input field for the mass
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	ImGui::PopItemWidth();
 }

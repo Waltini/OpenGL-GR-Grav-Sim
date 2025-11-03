@@ -11,49 +11,54 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "celestial_body_class.h"
 
-// Type Definitions for custom GLM maths objects
-using ldvec3 = glm::tvec3<long double>;
-using ldmat43 = glm::mat<4, 3, long double>;
+using dvec3 = glm::dvec3;
+using dmat43 = glm::mat<4, 3, double>;
 
-// mathState structure for communication with the Buffer Box
 struct mathState {
-	ldmat43 y;
-	long double m1, m2, physics_time;
+	dmat43 y;
+	double m1, m2, physics_time;
 };
 
-struct result_values {
-	ldmat43 state_y;
-	long double time_update;
-	bool accepted;
+struct substep_values {
+	dmat43 state_y;
+	double err_norm;
 };
 
-struct debug_values {
-	result_values result;
-	long double attempt_h;
-	long double err_norm_passed;
-	long double next_h;
+struct integrate_result {
+	dmat43 state_y;
+	double slip;
+	int count;
+	int accepts;
+	int rejects;
+	double avg_h;
+
+	integrate_result(dmat43 state, double slip, int count, int accepts, int rejects, double avg_h) :
+		state_y(state), slip(slip), count(count), accepts(accepts), rejects(rejects), avg_h(avg_h) {
+	}
 };
 
 class RK45_integration {
 public:
-	RK45_integration(long double atol, long double rtol, long double initial_dt);
+	RK45_integration(double atol, double rtol, double initial_dt);
 
-	debug_values step(mathState backbuf);
+	integrate_result step(mathState backbuf, double physics_dt);
 
 	bool getDebug();
 
 	void setDebug(bool update);
 private:
-	long double atol;
-	long double rtol;
-	long double h;
+	double atol;
+	double rtol;
+	double timestep;
 	bool debug = false;
 
-	ldmat43 derivatives(long double t, ldmat43& y, long double m1, long double m2);
+	dmat43 derivatives(dmat43& y, double m1, double m2);
 
-	debug_values RK45_step(ldmat43 y, long double t, long double& h, long double m1, long double m2);
+	integrate_result RK45_integrate(dmat43 y, double total_dt, double tol, double m1, double m2);
 
-	long double calc_err_norm(const ldmat43& y, const ldmat43& y4, const ldmat43& y5, const long double atol, const long double rtol);
+	substep_values RK45_substep(dmat43 y, double& h, double m1, double m2);
+
+	double calc_err_norm(const dmat43& y, const dmat43& y4, const dmat43& y5, const double atol, const double rtol);
 };
 
 #endif
