@@ -146,10 +146,24 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="formulae.cpp" />
+    <ClCompile Include="integration.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="celestial_body_class.h" />
     <ClInclude Include="formulae.h" />
+    <ClInclude Include="integration.h" />
+    <ClInclude Include="shaders_c.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="shader.fs">
+      <FileType>CppCode</FileType>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shader.vs">
+      <FileType>CppCode</FileType>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
