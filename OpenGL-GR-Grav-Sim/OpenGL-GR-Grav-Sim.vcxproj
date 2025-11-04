@@ -137,31 +137,31 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\VCPKG\vcpkg\installed\x64-windows\include\imgui\backends\imgui_impl_glfw.cpp">
+    <ClCompile Include="libraries\imgui\backends\imgui_impl_glfw.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\VCPKG\vcpkg\installed\x64-windows\include\imgui\backends\imgui_impl_opengl3.cpp">
+    <ClCompile Include="libraries\imgui\backends\imgui_impl_opengl3.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
-    <ClCompile Include="formulae.cpp" />
-    <ClCompile Include="integration.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="include\formulae.cpp" />
+    <ClCompile Include="src\integration.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="celestial_body_class.h" />
-    <ClInclude Include="formulae.h" />
-    <ClInclude Include="integration.h" />
-    <ClInclude Include="shaders_c.h" />
+    <ClInclude Include="include\celestial_body_class.h" />
+    <ClInclude Include="include\formulae.h" />
+    <ClInclude Include="include\integration.h" />
+    <ClInclude Include="include\shaders_c.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="shader.fs">
+    <ClInclude Include="assets\shader.fs">
       <FileType>CppCode</FileType>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader.vs">
+    <None Include="assets\shader.vs">
       <FileType>CppCode</FileType>
     </None>
   </ItemGroup>
