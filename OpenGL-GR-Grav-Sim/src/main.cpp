@@ -15,6 +15,7 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+#include <filesystem>
 
 #include <queue>
 #include <condition_variable>
@@ -29,6 +30,8 @@ int SCR_HEIGHT = 800;
 
 using dvec3 = glm::dvec3;
 using dmat43 = glm::mat<4, 3, double>;
+
+namespace fs = std::filesystem;
 
 std::atomic<bool> pause = false;
 std::atomic<bool> halted = false;
@@ -71,7 +74,7 @@ enum infields {
 	mass
 };
 
-void ImGui_Input_Fields(enum infields intp_type, render_object& edit_obj);
+void ImGui_Input_Fields(infields intp_type, render_object& edit_obj);
 
 class buffer_box {
 private:
@@ -264,7 +267,9 @@ int render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const c
 		return -1;
 	}
 
-	Shader myShader("shader.vs", "shader.fs"); // Points my shader class to my vertex and fragment shader files
+	fs::path vertexPath = fs::path("assets") / "shader.vs";
+	fs::path fragmentPath = fs::path("assets") / "shader.fs";
+	Shader myShader(vertexPath.string().c_str(), fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
 
 	float vertices[] = { // Creates a cube
 	-0.5f, -0.5f, -0.5f,

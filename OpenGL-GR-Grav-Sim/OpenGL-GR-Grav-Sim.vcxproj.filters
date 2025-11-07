@@ -15,38 +15,38 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="libraries\imgui\backends\imgui_impl_glfw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\VCPKG\vcpkg\installed\x64-windows\include\imgui\backends\imgui_impl_glfw.cpp">
+    <ClCompile Include="libraries\imgui\backends\imgui_impl_opengl3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\VCPKG\vcpkg\installed\x64-windows\include\imgui\backends\imgui_impl_opengl3.cpp">
+    <ClCompile Include="src\formulae.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="formulae.cpp">
+    <ClCompile Include="src\integration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="integration.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="formulae.h">
+    <ClInclude Include="include\celestial_body_class.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="celestial_body_class.h">
+    <ClInclude Include="include\formulae.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="integration.h">
+    <ClInclude Include="include\integration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shaders_c.h">
+    <ClInclude Include="include\shaders_c.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shader.fs" />
+    <ClInclude Include="assets\shader.fs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader.vs" />
+    <None Include="assets\shader.vs" />
   </ItemGroup>
 </Project>
