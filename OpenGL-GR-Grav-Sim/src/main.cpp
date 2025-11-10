@@ -3,7 +3,7 @@
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
-#include <glad/glad.h>
+#include <glad/include/glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -191,7 +191,7 @@ celestial_body body2(pos2, v2, m2);
 
 buffer_box bufbx = buffer_box(body1, body2);
 
-int physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim_speed) {
+void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim_speed) {
 	double ct, lt = 0.0, accum_t = 0.0;
 	double physics_dt = 0.033;
 	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
@@ -240,11 +240,9 @@ int physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim_
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(33));
 	}
-
-	return 0;
 }
 
-int render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const char* glsl_version) {
+void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const char* glsl_version) {
 	int GUI_ID = 0;
 
 	// GLFW Set
@@ -264,7 +262,6 @@ int render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const c
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "Failed to initialise GLAD" << std::endl;
-		return -1;
 	}
 
 	fs::path vertexPath = fs::path("assets") / "shader.vs";
@@ -443,13 +440,6 @@ int render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const c
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-
-	// As soon as the window is set to close, the while loop is passed and then Imgui and glfw is terminated
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-	glfwTerminate();
-	return 0;
 }
 
 
@@ -495,6 +485,13 @@ int main(int, char**)
 	render(window, FPS, background, show, glsl_version);
 
 	p.join();
+
+	// As soon as the window is set to close, the while loop is passed and then Imgui and glfw is terminated
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+	glfwTerminate();
+	return 0;
 };
 
 
@@ -549,7 +546,11 @@ void ImGui_Input_Fields(infields intp_type, render_object& edit_obj) {
 		char label_m[64];
 		snprintf(label_m, sizeof(label_m), "##b%i_mass", edit_obj.body_num); // reformats the ID label mass to contain the relevant information
 		ImGui::Text("Mass");
+		double last_mass = edit_obj.mass;
 		ImGui::SameLine(); ImGui::InputDouble(label_m, &edit_obj.mass, 0.01, 1.0, "%e"); // input field for the mass
+		if (edit_obj.mass <= 0) {
+			edit_obj.mass = last_mass;
+		}
 		break;
 	}
 

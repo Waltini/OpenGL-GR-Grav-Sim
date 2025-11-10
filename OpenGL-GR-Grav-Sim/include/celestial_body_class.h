@@ -17,7 +17,12 @@ private:
     double radius = calcSphereRadius(mass);
 
     double calcSphereRadius(double M) {
-        return ((5 * 10e2) * std::cbrt((M - 3.003e-6) / (5 * M_PI * 9247304))) + 0.5;
+        if (M > 3.003e-6) {
+            return (10e2 * std::cbrt((3 * (M - 3.003e-6)) / (4 * M_PI * 9247304))) + 0.5;
+        }
+        else {
+            return 0.5;
+        }
     }
 
 public:
@@ -38,7 +43,10 @@ public:
     // Setters
     void setPos(const dvec3& p) { pos = p; } // Sets the position of the object (used by the buffer box front buffer updating, and ImGUI edit applying)
     void setVel(const dvec3& v) { vel = v; } // Sets the velocity of the object (used by the buffer box front buffer updating, and ImGUI edit applying)
-    void setMass(const double& m) { mass = m; } // Sets the mass of the object (used only by ImGUI edit applying
+    void setMass(const double& m) { 
+        mass = m;
+        radius = calcSphereRadius(m);
+    } // Sets the mass of the object and updates the radius with the new mass (used only by ImGUI edit applying)
 
     // Debug
     void print() const {

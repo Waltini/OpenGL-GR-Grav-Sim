@@ -71,11 +71,19 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries\imgui;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries\imgui;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -84,6 +92,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -98,6 +108,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\libraries;C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -112,11 +124,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EntryPointSymbol>
+      </EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -127,14 +142,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\SkySl\source\repos\OpenGL-GR-Grav-Sim\OpenGL-GR-Grav-Sim\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include;C:\Users\SkySl\VCPKG\vcpkg\installed\x64-windows\include\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
