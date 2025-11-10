@@ -334,6 +334,18 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 	bool edit_f = false; // editing flag to indicate if the user is editing properties
 
+	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
+
+	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+	glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
+
+	// view matrix, representative of the current position of the where the point of view originates and in what direction
+	glm::mat4 view = glm::mat4(1.0f);
+	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f)); // Sets the camera back three units
+
 	while (!glfwWindowShouldClose(window))
 	{
 		// Front Buffer Snapshot
@@ -402,10 +414,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		}
 
 		glBindVertexArray(VAO);
-
-		// view matrix, representative of the current position of the where the point of view originates and in what direction
-		glm::mat4 view = glm::mat4(1.0f);
-		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f)); // Sets the camera back three units
 
 		// projection matrix, responsible for dictating what is in view / what can be seen
 		glm::mat4 projection;
