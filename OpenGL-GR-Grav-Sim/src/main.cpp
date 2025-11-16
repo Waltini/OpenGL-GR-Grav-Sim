@@ -83,7 +83,7 @@ enum infields {
 	mass
 };
 
-void ImGui_Input_Fields(infields intp_type, render_object& edit_obj);
+void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj);
 
 class buffer_box {
 private:
@@ -409,12 +409,12 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				}
 				P_cv.notify_one();
 			}
-			ImGui_Input_Fields(pos, body1_edit);
-			ImGui_Input_Fields(vel, body1_edit);
-			ImGui_Input_Fields(mass, body1_edit);
-			ImGui_Input_Fields(pos, body2_edit);
-			ImGui_Input_Fields(vel, body2_edit);
-			ImGui_Input_Fields(mass, body2_edit);
+			ImGui_Input_Vector_Fields(pos, body1_edit);
+			ImGui_Input_Vector_Fields(vel, body1_edit);
+			ImGui_Input_Vector_Fields(mass, body1_edit);
+			ImGui_Input_Vector_Fields(pos, body2_edit);
+			ImGui_Input_Vector_Fields(vel, body2_edit);
+			ImGui_Input_Vector_Fields(mass, body2_edit);
 			if (body1_edit != body1 || body2_edit != body2) {
 				edit_f = true;
 			}
@@ -581,7 +581,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 	cam.looking(xpos, ypos);
 }
 
-void ImGui_Input_Fields(infields intp_type, render_object& edit_obj) {
+void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 	ImGui::PushItemWidth(150);
 
 	switch (intp_type) {

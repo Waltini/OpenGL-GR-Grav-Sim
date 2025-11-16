@@ -34,10 +34,10 @@ private:
 	// characteristics
 	float cameraSpeed = 0.0f;
 	float sensitivity = 0.1f;
-	float speedScalar = 2.5f;
+	float speedScalar = 1.0f;
 
 	inline void calcCamSpeed(double deltaTime) {
-		cameraSpeed = speedScalar * deltaTime;
+		cameraSpeed = speedScalar * 2.5f * deltaTime;
 	}
 
 public:
