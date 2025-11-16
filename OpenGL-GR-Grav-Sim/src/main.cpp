@@ -1,5 +1,9 @@
 #define M_PI        3.14159265358979323846264338327950288   /* pi */
 
+#include "integration.h"
+#include "shaders_c.h"
+#include "celestial_body_class.h"
+#include "camera_class.h"
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
@@ -8,9 +12,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "integration.h"
-#include "shaders_c.h"
-#include "celestial_body_class.h"
 
 #include <iostream>
 #include <cmath>
@@ -28,6 +29,8 @@
 int SCR_WIDTH = 600;
 int SCR_HEIGHT = 800;
 
+camera cam(-90.0f, 0.0f, 800.0f / 2.0f, 600.0f / 2.0f, 45.0f);
+
 using dvec3 = glm::dvec3;
 using dmat43 = glm::mat<4, 3, double>;
 
@@ -43,6 +46,11 @@ std::condition_variable H_cv;
 struct clsState {
 	celestial_body* b1;
 	celestial_body* b2;
+};
+
+struct ray {
+	glm::vec3 origin;
+	glm::vec3 direction;
 };
 
 struct render_object {
@@ -64,8 +72,9 @@ struct render_object {
 // Intialising main functions ~ Informs the compiler the functions exist pretty much
 static void glfw_error_callback(int error, const char* description);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void process_input(GLFWwindow* window, render_object& b1, render_object& b2);
-void mouse_callback(GLFWwindow* window, int button, int action, int mods);
+void process_input(GLFWwindow* window, render_object& b1, render_object& b2, float deltaTime);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 // Formatting Functions
 enum infields {
@@ -243,7 +252,6 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 }
 
 void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const char* glsl_version) {
-	int GUI_ID = 0;
 
 	// GLFW Set
 	glfwMakeContextCurrent(window); // sets the context of the window to current on the thread
@@ -334,17 +342,14 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 	bool edit_f = false; // editing flag to indicate if the user is editing properties
 
-	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
 
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
-	glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
+	glm::mat4 view;	// view matrix, representative of the current position of the where the point of view originates and in what direction
+	glm::mat4 projection; // projection matrix, responsible for dictating what is in view / what can be seen
 
-	// view matrix, representative of the current position of the where the point of view originates and in what direction
-	glm::mat4 view = glm::mat4(1.0f);
-	view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f)); // Sets the camera back three units
+	float deltaTime = 0.0f;	// Time between current frame and last frame
+	float lastFrame = 0.0f; // Time of last frame
+
+	bool showCameraSettings = false;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -352,6 +357,10 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		clsState snapshot = bufbx.readFrontBuffer(); // grabs the pointers for the celestial body class objects
 		celestial_body b1 = *snapshot.b1; // De-referenced Body 1
 		celestial_body b2 = *snapshot.b2; // De-referenced Body 2
+
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
 
 		// Snapshot segmenting
 		body1.pos = b1.getPos();
@@ -370,7 +379,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		}
 
 		// Input processing
-		process_input(window, body1, body2);
+		process_input(window, body1, body2, deltaTime);
 		glClearColor(background.x, background.y, background.z, background.w);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -378,6 +387,13 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+
+		// Camera Settings
+		//if (showCameraSettings) {
+		//	ImGui::Begin("Camera Settings");
+		//	cam.editFOV();
+		//}
+
 
 		// Test GUI
 		if (show) {
@@ -415,9 +431,8 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		glBindVertexArray(VAO);
 
-		// projection matrix, responsible for dictating what is in view / what can be seen
-		glm::mat4 projection;
-		projection = glm::perspective(glm::radians(45.0f), (float)SCR_HEIGHT / (float)SCR_WIDTH, 0.1f, 100.0f); // Grabs the current screen height and width to scale display accordingly. This is responsible for converting world coordinates into NDC
+		cam.look(view);
+		cam.project(projection, SCR_HEIGHT, SCR_WIDTH);
 
 		myShader.use();
 		// uniform assigning
@@ -439,6 +454,18 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		myShader.setMat4("model", model_2); // sets the calculated model matrix for Body 2 to the model matrix called within the vertex shader
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);  // Updates the draw array with the current values for Body 2 set in the shader
+
+		// Main Menu Bar
+		if (ImGui::BeginMainMenuBar()) {
+			if (ImGui::BeginMenu("Camera")) {
+				if (ImGui::BeginMenu("Settings")) {
+					cam.settings();
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMainMenuBar();
+		}
 
 		// Imgui Render
 		ImGui::Render();
@@ -477,6 +504,8 @@ int main(int, char**)
 	// GLFW Set
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); // sets the framebuffer size callback GLFW will use to the one I programmed
 	glfwSetErrorCallback(glfw_error_callback); // sets the error callback GLFW will use to the one I programmed
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 
 	RK45_integration integrator(1e-8, 1e-10, 0.05);
 
@@ -514,12 +543,22 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height); // Details how OpenGL should map its NDC (Normalised Device Coordinates) to the display
 }
 
-void process_input(GLFWwindow* window, render_object& b1, render_object& b2) {
+void process_input(GLFWwindow* window, render_object& b1, render_object& b2, float deltaTime) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // Terminate command
 		glfwSetWindowShouldClose(window, true); // Causes while loop to break
+
+	// Camera Moving
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		cam.move(forward, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		cam.move(backward, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		cam.move(left, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		cam.move(right, deltaTime);
 }
 
-void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS) {
 		double xpos, ypos;
 
@@ -527,6 +566,19 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
 
 		bufbx.setMousePos((glm::vec2)(xpos, ypos));
 	}
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		cam.setLooking(true);
+	}
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		cam.setLooking(false);
+	}
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	cam.looking(xpos, ypos);
 }
 
 void ImGui_Input_Fields(infields intp_type, render_object& edit_obj) {

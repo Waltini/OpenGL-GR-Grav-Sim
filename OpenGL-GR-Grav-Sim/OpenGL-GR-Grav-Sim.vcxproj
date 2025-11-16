@@ -167,6 +167,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\camera_class.h" />
     <ClInclude Include="include\celestial_body_class.h" />
     <ClInclude Include="include\formulae.h" />
     <ClInclude Include="include\integration.h" />

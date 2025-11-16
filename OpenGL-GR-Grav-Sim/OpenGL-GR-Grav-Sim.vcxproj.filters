@@ -47,6 +47,9 @@
     <ClInclude Include="assets\shader.fs">
       <Filter>Resource Files</Filter>
     </ClInclude>
+    <ClInclude Include="camera_class.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\shader.vs">
