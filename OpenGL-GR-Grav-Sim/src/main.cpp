@@ -75,6 +75,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void process_input(GLFWwindow* window, render_object& b1, render_object& b2, float deltaTime);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods);
 
 // Formatting Functions
 enum infields {
@@ -462,6 +463,9 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 					cam.settings();
 					ImGui::EndMenu();
 				}
+				if (ImGui::MenuItem("Reset Camera", "Ctrl+R")) {
+					cam.resetCommand();
+				}
 				ImGui::EndMenu();
 			}
 			ImGui::EndMainMenuBar();
@@ -506,6 +510,7 @@ int main(int, char**)
 	glfwSetErrorCallback(glfw_error_callback); // sets the error callback GLFW will use to the one I programmed
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetKeyCallback(window, key_callback);
 
 	RK45_integration integrator(1e-8, 1e-10, 0.05);
 
@@ -547,6 +552,8 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // Terminate command
 		glfwSetWindowShouldClose(window, true); // Causes while loop to break
 
+	// Camera
+	// -------------------------------------------------------------------------------
 	// Camera Moving
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		cam.move(forward, deltaTime);
@@ -556,6 +563,7 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 		cam.move(left, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		cam.move(right, deltaTime);
+
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -573,6 +581,12 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		cam.setLooking(false);
+	}
+}
+
+void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods) {
+	if (button == GLFW_KEY_R && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
+		cam.resetCommand();
 	}
 }
 

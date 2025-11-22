@@ -40,6 +40,11 @@ private:
 		cameraSpeed = speedScalar * 2.5f * deltaTime;
 	}
 
+	inline void reset() {
+		cameraFront = glm::vec3{ 0.0f, 0.0f, -1.0f };
+		cameraPos = glm::vec3{ 0.0f, 0.0f, 3.0f };
+	}
+
 public:
 	// Constructor
 	camera(float ya, float p, float lX, float lY, float fv)
@@ -120,6 +125,10 @@ public:
 		ImGui::SliderFloat("FOV", &fov, 15.0f, 70.0f, "%.1f");
 		ImGui::SliderFloat("Sensitivity", &sensitivity, 0.01f, 1.0f, "%.2f");
 		ImGui::SliderFloat("Camera Speed", &speedScalar, 0.5f, 2.5f, "%.2f");
+	}
+
+	inline void resetCommand() {
+		reset();
 	}
 
 };
