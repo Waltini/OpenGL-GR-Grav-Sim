@@ -19,6 +19,7 @@
 #include <filesystem>
 
 #include <queue>
+#include <array>
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
@@ -41,7 +42,213 @@ std::atomic<bool> halted = false;
 
 std::mutex mtx;
 std::condition_variable P_cv;
-std::condition_variable H_cv;
+//std::condition_variable H_cv;
+
+struct state { // Snapshot of the program that the user can return to
+	dmat43 vectors;
+	double m1;
+	double m2;
+
+public:
+	// Constructors
+	state(dmat43 con_y, double con_mass1, double con_mass2) // dmat43, double, double
+		: vectors(con_y), m1(con_mass1), m2(con_mass2) { }
+	state(dvec3 con_pos1, dvec3 con_vel1, dvec3 con_pos2, dvec3 con_vel2, double con_mass1, double con_mass2) // dvec3, dvec3, dvec3, dvec3, double, double
+		: m1(con_mass1), m2(con_mass2) {
+		vectors[0] = con_pos1;
+		vectors[1] = con_vel1;
+		vectors[2] = con_pos2;
+		vectors[3] = con_vel2;
+	}
+
+	void print() const {
+		// Mass printing
+		std::cout << "m1 = " << m1 << std::endl;
+		std::cout << "m2 = " << m2 << std::endl;
+		// Matrix printing
+		for (int i = 0; i <= 3; i++) {
+			for (int j = 0; j <= 2; j++) {
+				std::cout << vectors[i][j] << std::endl;
+			}
+		}
+	}
+};
+
+struct Node {
+	state value; // Snapshot of the program that this node represents
+
+	struct Node* next; // Pointer indicating to the next node in the dustack // If there is no next node it is set to nullptr
+
+	Node(state val, struct Node* ptr) // Constructor
+		: value(val), next(ptr) {}
+};
+
+struct dustack { // A dual stack mimicks the operations of flipping between two stacks with one stack evaporating as soon as new data is added to the other
+private:
+	Node* front = nullptr; // points to the top of the fallback list
+	Node* middle = nullptr; // points to the currently accessed data
+	Node* back = nullptr; // points to the top node of the constant list
+	int sizeNum = 0; // current size of the entire strucuture
+
+public:
+	int size() const { return sizeNum; }
+
+	void push(state val, bool output = false) {
+		// Creating the newNode
+		Node* newNode = new Node(val, nullptr);
+
+		if (sizeNum == 0) { // the simplest scenario // the list is empty/being pushed to for the first time
+			middle = newNode;
+			sizeNum = 1;
+			if (output) {
+				std::cout << "[1] " << newNode << std::endl;
+			}
+			return;
+		}
+
+		middle->next = back; // Place the previous state at the top of the constant list
+		back = middle; // Move the back pointer to the new top of the constant list
+
+		if (front) { // if there is a fallback list, it deletes each fallback node and removes the size of the fallback list from the sizeNum
+			Node* cull = front;
+			front = nullptr; // Sets the front pointer to null
+			while (cull) {
+				Node* next = cull->next;
+				delete cull;
+				sizeNum--;
+				cull = next;
+			}
+		}
+
+		middle = newNode; // Adds the new node
+
+		if (output) {
+			std::cout << "[" << sizeNum + 1 << "] " << newNode << std::endl;
+		}
+		sizeNum++; // Increases the size
+
+		if (sizeNum > 20) { // In case of error removes each extra node over the maximum
+			Node* run = back;
+			for (int i = 0; i < 18; i++) { // runs to the end of the list
+				run = run->next;
+			}
+			Node* cull = run->next;
+			run->next = nullptr;
+			while (sizeNum > 20) { // deletes any overflow nodes
+				Node* next = cull->next;
+				delete cull;
+				sizeNum--;
+				cull = next;
+			}
+		}
+	}
+
+	bool undo() {
+		if (back) {
+			// Place middle node into fallback list
+			middle->next = front;
+			front = middle;
+
+			// Move top of constant stack into middle
+			middle = back;
+			back = back->next;
+			middle->next = nullptr;
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	bool redo() {
+		if (front) {
+			// Move middle node into constant list
+			middle->next = back;
+			back = middle;
+
+			// Recall top of fallback list into the middle
+			middle = front;
+			front = front->next;
+			middle->next = nullptr;
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	state read() const { return middle->value; }
+
+	void debug(bool flag) {
+		if (flag) {
+			// Middle
+			std::cout << "[MIDDLE] printed " << middle << std::endl;
+			// Back
+			std::cout << "[BACK] printed" << back << std::endl;
+			// Front
+			std::cout << "[FRONT] printed" << front << std::endl;
+
+			if (sizeNum != 1) {
+				// Constant
+				if (back) {
+					std::cout << "[CONSTANT]" << std::endl;
+					Node* next = back;
+					while (next) {
+						std::cout << "[CONSTANT STATE] printed " << next << std::endl;
+
+						next = next->next;
+					}
+
+				}
+
+				// Fallback
+				if (front) {
+					std::cout << "[FALLBACK]" << std::endl;
+					Node* next = front;
+					while (next) {
+						std::cout << "[FALLBACK STATE] printed " << next << std::endl;
+
+						next = next->next;
+					}
+				}
+			}
+		}
+		else {
+			// Middle
+			state crt = middle->value;
+			std::cout << "[MIDDLE]" << std::endl;
+			crt.print();
+
+			if (sizeNum != 1) {
+				// Constant
+				if (back) {
+					std::cout << "[CONSTANT]" << std::endl;
+					Node* next = back;
+					while (next) {
+						state debug = next->value;
+
+						debug.print();
+
+						next = next->next;
+					}
+				}
+
+				// Fallback
+				if (front) {
+					std::cout << "[FALLBACK]" << std::endl;
+					Node* next = front;
+					while (next) {
+						state debug = next->value;
+
+						debug.print();
+
+						next = next->next;
+					}
+				}
+			}
+		}
+	}
+};
 
 struct clsState {
 	celestial_body* b1;
@@ -91,6 +298,7 @@ private:
 	mathState backBuffer; // The back buffer. Used for the background mathematics and the buffer used by the physics thread
 	clsState frontBuffer; // The front buffer. Used for displaying the position of the bodies and the buffer used by the rendering function within the main thread
 	glm::vec2 mousePos; // The mouse buffer. Stores the location of the most recent mouse input
+	dustack editStack; // Custom data structure for undoing and redoing edits
 	int GUI_ID; // The GUI ID. Informs the rendering what gui (in context of the bodies) to display at a given moment
 
 	void bufferSet(celestial_body& body1, celestial_body& body2) {
@@ -129,10 +337,10 @@ public:
 		backBuffer.y = state;
 	} // Updates the backbuffer with a new state and new time
 
-	void applyEdits(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) { // Update the back buffer and front buffer with a completely new state / simulation
+	void edit(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) {
 		// Pack Matrix
 		dmat43 dim_edits = { pos1_edit, vel1_edit, pos2_edit, vel2_edit };
-		
+
 		//Back Buffer Edits
 		backBuffer.y = dim_edits; // Apply dimensional edits to the backbuffer
 		backBuffer.m1 = m1_edit; // Apply the mass edits of b1 to the backbuffer
@@ -150,6 +358,28 @@ public:
 
 		b2.setPos(pos2_edit);
 		b2.setVel(vel2_edit);
+	}
+
+	void applyEdits(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) { // Update the back buffer and front buffer with a completely new state / simulation
+		edit(pos1_edit, vel1_edit, pos2_edit, vel2_edit, m1_edit, m2_edit);
+
+		state val(pos1_edit, vel1_edit, pos2_edit, vel2_edit, m1_edit, m2_edit);
+
+		editStack.push(val);
+	}
+
+	void undoState() {
+		editStack.undo();
+		state new_val = editStack.read();
+		dmat43 vectors = new_val.vectors;
+		edit(vectors[0], vectors[1], vectors[2], vectors[3], new_val.m1, new_val.m2);
+	}
+
+	void redoState() {
+		editStack.redo();
+		state new_val = editStack.read();
+		dmat43 vectors = new_val.vectors;
+		edit(vectors[0], vectors[1], vectors[2], vectors[3], new_val.m1, new_val.m2);
 	}
 
 	// Debug Functions
@@ -180,9 +410,18 @@ public:
 		b2.print();
 	}
 
+	void debugEditLog(bool flag) {
+		editStack.debug(flag);
+	}
+
 	glm::vec2 getMousePos() const { return mousePos; }
 	void setMousePos(const glm::vec2 position) { mousePos = position; }
 };
+
+// Nil State
+dvec3 empty_vector{ 0.0,0.0,0.0 };
+double empty_double = 0.0;
+state nil(empty_vector, empty_vector, empty_vector, empty_vector, empty_double, empty_double);
 
 // Initial State
 // Body 1 Characteristics
@@ -201,6 +440,10 @@ celestial_body body2(pos2, v2, m2);
 
 buffer_box bufbx = buffer_box(body1, body2);
 
+state earth_sun(pos1, v1, pos2, v2, m1, m2);
+
+state presets[5] = { state(pos1, v1, pos2, v2, m1, m2), nil, nil, nil, nil };
+
 void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim_speed) {
 	double ct, lt = 0.0, accum_t = 0.0;
 	double physics_dt = 0.033;
@@ -210,8 +453,8 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 	int count = 0, accepts = 0, rejects = 0;
 
 	while (!glfwWindowShouldClose(window)) {
-		halted = true; // Momentarily updates the halted variable so it may be caught if the ImGUI pause function has started
-		H_cv.notify_one(); // Notifies the rendering function IF IT IS WAITING, if it's not waitng nothing happens and this just goes onto the next step
+		//halted = true; // Momentarily updates the halted variable so it may be caught if the ImGUI pause function has started
+		//H_cv.notify_one(); // Notifies the rendering function IF IT IS WAITING, if it's not waitng nothing happens and this just goes onto the next step
 
 		double lock_time_start = glfwGetTime();
 
@@ -222,7 +465,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 		double lock_time_end = glfwGetTime();
 		double lock_duration = lock_time_end - lock_time_start;
 
-		halted = false; // After checking that it doesn't need to halted it then sets the halted variable to false
+		//halted = false; // After checking that it doesn't need to halted it then sets the halted variable to false
 
 		mathState BackBuffer = bufbx.readBackBuffer(); // Reads the current backbuffer
 
@@ -389,13 +632,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// Camera Settings
-		//if (showCameraSettings) {
-		//	ImGui::Begin("Camera Settings");
-		//	cam.editFOV();
-		//}
-
-
 		// Test GUI
 		if (show) {
 			ImGui::Begin("Hello World!");
@@ -405,9 +641,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			}
 			if (ImGui::Button("Unpause")) {
 				pause = false;
-				if (edit_f) {
-					edit_f = false;
-				}
+				edit_f = false;
 				P_cv.notify_one();
 			}
 			ImGui_Input_Vector_Fields(pos, body1_edit);
@@ -417,10 +651,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			ImGui_Input_Vector_Fields(vel, body2_edit);
 			ImGui_Input_Vector_Fields(mass, body2_edit);
 			if (body1_edit != body1 || body2_edit != body2) {
-				edit_f = true;
-			}
-
-			if (edit_f) {
 				pause = true;
 				P_cv.notify_one();
 
@@ -458,6 +688,23 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
+			if (ImGui::BeginMenu("Edit")) {
+				if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
+					pause = true;
+					P_cv.notify_one();
+					bufbx.undoState();
+					/*bufbx.debugEditLog(false);
+					bufbx.debugEditLog(true);*/
+				}
+				if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
+					pause = true;
+					P_cv.notify_one();
+					bufbx.redoState();
+					/*bufbx.debugEditLog(false);
+					bufbx.debugEditLog(true);*/
+				}
+				ImGui::EndMenu();
+			}
 			if (ImGui::BeginMenu("Camera")) {
 				if (ImGui::BeginMenu("Settings")) {
 					cam.settings();
@@ -467,6 +714,42 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 					cam.resetCommand();
 				}
 				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Presets")) {
+				if (ImGui::BeginMenu("Save")) {
+					if (ImGui::MenuItem("Preset 1")) {
+						
+					}
+					if (ImGui::MenuItem("Preset 2")) {
+
+					}
+					if (ImGui::MenuItem("Preset 3")) {
+
+					}
+					if (ImGui::MenuItem("Preset 4")) {
+
+					}
+					if (ImGui::MenuItem("Preset 5")) {
+
+					}
+				}
+				if (ImGui::BeginMenu("Load")) {
+					if (ImGui::MenuItem("Preset 1")) {
+
+					}
+					if (ImGui::MenuItem("Preset 2")) {
+
+					}
+					if (ImGui::MenuItem("Preset 3")) {
+
+					}
+					if (ImGui::MenuItem("Preset 4")) {
+
+					}
+					if (ImGui::MenuItem("Preset 5")) {
+
+					}
+				}
 			}
 			ImGui::EndMainMenuBar();
 		}
@@ -549,9 +832,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 void process_input(GLFWwindow* window, render_object& b1, render_object& b2, float deltaTime) {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) // Terminate command
-		glfwSetWindowShouldClose(window, true); // Causes while loop to break
-
 	// Camera
 	// -------------------------------------------------------------------------------
 	// Camera Moving
@@ -587,6 +867,26 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods) {
 	if (button == GLFW_KEY_R && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
 		cam.resetCommand();
+	}
+	if (button == GLFW_KEY_Z && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
+		pause = true;
+		P_cv.notify_one();
+		bufbx.undoState();
+		/*bufbx.debugEditLog(false);
+		bufbx.debugEditLog(true);*/
+	}
+	if (button == GLFW_KEY_Y && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
+		pause = true;
+		P_cv.notify_one();
+		bufbx.redoState();
+		/*bufbx.debugEditLog(false);
+		bufbx.debugEditLog(true);*/
+	}
+	if (button == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		pause = false;
+		P_cv.notify_one();
+
+		glfwSetWindowShouldClose(window, true);
 	}
 }
 
