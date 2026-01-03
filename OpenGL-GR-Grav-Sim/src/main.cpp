@@ -313,6 +313,30 @@ private:
 		backBuffer.m2 = body2.getMass();
 		backBuffer.physics_time = 0.0;
 	}
+
+	void edit(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) { // Changes the values within each buffer.
+		// Pack Matrix
+		dmat43 dim_edits = { pos1_edit, vel1_edit, pos2_edit, vel2_edit };
+
+		//Back Buffer Edits
+		backBuffer.y = dim_edits; // Apply dimensional edits to the backbuffer
+		backBuffer.m1 = m1_edit; // Apply the mass edits of b1 to the backbuffer
+		backBuffer.m2 = m2_edit; // Apply the mass edits of b2 to the backbuffer
+
+		//Front Buffer Edits
+		celestial_body& b1 = *frontBuffer.b1; // Dereference b1
+		celestial_body& b2 = *frontBuffer.b2; // Dereference b2
+
+		b1.setMass(m1_edit);
+		b2.setMass(m2_edit);
+
+		b1.setPos(pos1_edit);
+		b1.setVel(vel1_edit);
+
+		b2.setPos(pos2_edit);
+		b2.setVel(vel2_edit);
+	}
+
 public:
 	buffer_box(celestial_body& body1, celestial_body& body2) {
 		bufferSet(body1, body2);
@@ -337,35 +361,17 @@ public:
 		backBuffer.y = state;
 	} // Updates the backbuffer with a new state and new time
 
-	void edit(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) {
-		// Pack Matrix
-		dmat43 dim_edits = { pos1_edit, vel1_edit, pos2_edit, vel2_edit };
-
-		//Back Buffer Edits
-		backBuffer.y = dim_edits; // Apply dimensional edits to the backbuffer
-		backBuffer.m1 = m1_edit; // Apply the mass edits of b1 to the backbuffer
-		backBuffer.m2 = m2_edit; // Apply the mass edits of b2 to the backbuffer
-
-		//Front Buffer Edits
-		celestial_body& b1 = *frontBuffer.b1; // Dereference b1
-		celestial_body& b2 = *frontBuffer.b2; // Dereference b2
-
-		b1.setMass(m1_edit);
-		b2.setMass(m2_edit);
-
-		b1.setPos(pos1_edit);
-		b1.setVel(vel1_edit);
-
-		b2.setPos(pos2_edit);
-		b2.setVel(vel2_edit);
-	}
-
 	void applyEdits(dvec3 pos1_edit, dvec3 vel1_edit, dvec3 pos2_edit, dvec3 vel2_edit, double m1_edit, double m2_edit) { // Update the back buffer and front buffer with a completely new state / simulation
 		edit(pos1_edit, vel1_edit, pos2_edit, vel2_edit, m1_edit, m2_edit);
 
 		state val(pos1_edit, vel1_edit, pos2_edit, vel2_edit, m1_edit, m2_edit);
 
 		editStack.push(val);
+	}
+	void applyEdits(state &edit_state) { // Update the back buffer and front buffer with a completely new state / simulation (state parameter)
+		edit(edit_state.vectors[0], edit_state.vectors[1], edit_state.vectors[2], edit_state.vectors[3], edit_state.m1, edit_state.m2);
+
+		editStack.push(edit_state);
 	}
 
 	void undoState() {
@@ -381,6 +387,8 @@ public:
 		dmat43 vectors = new_val.vectors;
 		edit(vectors[0], vectors[1], vectors[2], vectors[3], new_val.m1, new_val.m2);
 	}
+
+	state readState() { return editStack.read(); }
 
 	// Debug Functions
 	void debugBackBuffer() const {
@@ -448,7 +456,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 	double ct, lt = 0.0, accum_t = 0.0;
 	double physics_dt = 0.033;
 	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
-	integrate_result result(mat, 0.0, 0, 0, 0, 0.0);
+	integrate_result result(mat, 0.0, 0, 0, 0, 0.0); 
 
 	int count = 0, accepts = 0, rejects = 0;
 
@@ -585,7 +593,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	body2.body_num = 2; body2_edit.body_num = 2;
 
 	bool edit_f = false; // editing flag to indicate if the user is editing properties
-
+	bool checkpt_f = false;
 
 	glm::mat4 view;	// view matrix, representative of the current position of the where the point of view originates and in what direction
 	glm::mat4 projection; // projection matrix, responsible for dictating what is in view / what can be seen
@@ -642,6 +650,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			if (ImGui::Button("Unpause")) {
 				pause = false;
 				edit_f = false;
+				checkpt_f = false;
 				P_cv.notify_one();
 			}
 			ImGui_Input_Vector_Fields(pos, body1_edit);
@@ -653,6 +662,10 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			if (body1_edit != body1 || body2_edit != body2) {
 				pause = true;
 				P_cv.notify_one();
+				if (!checkpt_f) {
+					bufbx.applyEdits(body1.pos, body1.vel, body2.pos, body2.vel, body1.mass, body2.mass);
+					checkpt_f = true;
+				}
 
 				bufbx.applyEdits(body1_edit.pos, body1_edit.vel, body2_edit.pos, body2_edit.vel, body1_edit.mass, body2_edit.mass);
 			}
@@ -693,15 +706,11 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 					pause = true;
 					P_cv.notify_one();
 					bufbx.undoState();
-					/*bufbx.debugEditLog(false);
-					bufbx.debugEditLog(true);*/
 				}
 				if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
 					pause = true;
 					P_cv.notify_one();
 					bufbx.redoState();
-					/*bufbx.debugEditLog(false);
-					bufbx.debugEditLog(true);*/
 				}
 				ImGui::EndMenu();
 			}
@@ -718,38 +727,51 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			if (ImGui::BeginMenu("Presets")) {
 				if (ImGui::BeginMenu("Save")) {
 					if (ImGui::MenuItem("Preset 1")) {
-						
+						presets[0] = bufbx.readState();
 					}
 					if (ImGui::MenuItem("Preset 2")) {
-
+						presets[1] = bufbx.readState();
 					}
 					if (ImGui::MenuItem("Preset 3")) {
-
+						presets[2] = bufbx.readState();
 					}
 					if (ImGui::MenuItem("Preset 4")) {
-
+						presets[3] = bufbx.readState();
 					}
 					if (ImGui::MenuItem("Preset 5")) {
-
+						presets[4] = bufbx.readState();
 					}
+					ImGui::EndMenu();
 				}
 				if (ImGui::BeginMenu("Load")) {
 					if (ImGui::MenuItem("Preset 1")) {
-
+						pause = true;
+						P_cv.notify_one();
+						bufbx.applyEdits(presets[0]);
 					}
 					if (ImGui::MenuItem("Preset 2")) {
-
+						pause = true;
+						P_cv.notify_one();
+						bufbx.applyEdits(presets[1]);
 					}
 					if (ImGui::MenuItem("Preset 3")) {
-
+						pause = true;
+						P_cv.notify_one();
+						bufbx.applyEdits(presets[2]);
 					}
 					if (ImGui::MenuItem("Preset 4")) {
-
+						pause = true;
+						P_cv.notify_one();
+						bufbx.applyEdits(presets[3]);
 					}
 					if (ImGui::MenuItem("Preset 5")) {
-
+						pause = true;
+						P_cv.notify_one();
+						bufbx.applyEdits(presets[4]);
 					}
+					ImGui::EndMenu();
 				}
+				ImGui::EndMenu();
 			}
 			ImGui::EndMainMenuBar();
 		}
@@ -803,6 +825,8 @@ int main(int, char**)
 	int FPS = 60;
 
 	integrator.setDebug(false);
+
+	bufbx.applyEdits(pos1, v1, pos2, v2, m1, m2);
 
 	// Threading
 	std::thread p(physics_thread, window, std::ref(integrator), 1.0f);
@@ -872,15 +896,11 @@ void key_callback(GLFWwindow* window, int button, int scancode, int action, int 
 		pause = true;
 		P_cv.notify_one();
 		bufbx.undoState();
-		/*bufbx.debugEditLog(false);
-		bufbx.debugEditLog(true);*/
 	}
 	if (button == GLFW_KEY_Y && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
 		pause = true;
 		P_cv.notify_one();
 		bufbx.redoState();
-		/*bufbx.debugEditLog(false);
-		bufbx.debugEditLog(true);*/
 	}
 	if (button == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		pause = false;
