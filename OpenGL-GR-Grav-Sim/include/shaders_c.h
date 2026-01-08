@@ -1,5 +1,6 @@
 #ifndef SHADER_H
 #define SHADER_H
+#define GLM_ENABALE_EXPERIMENTAL
 
 #include <glad/include/glad/glad.h>
 #include <glm/glm.hpp>
@@ -12,7 +13,7 @@
 class Shader {
 private:
 	// funcition for checking compiling/linking errors
-	void checkCompileErrors(unsigned int shader, std::string type) {
+	void checkCompileErrors(GLuint shader, std::string type) {
 		int success;
 		char infoLog[1024];
 		if (type != "PROGRAM") {
@@ -31,7 +32,7 @@ private:
 		}
 	}
 public:
-	unsigned int ID;
+	GLuint ID;
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
     Shader(const char* vertexPath, const char* fragmentPath)
@@ -67,7 +68,7 @@ public:
         const char* vShaderCode = vertexCode.c_str();
         const char* fShaderCode = fragmentCode.c_str();
         // 2. compile shaders
-        unsigned int vertex, fragment;
+        GLuint vertex, fragment;
         // vertex shader
         vertex = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex, 1, &vShaderCode, NULL);
