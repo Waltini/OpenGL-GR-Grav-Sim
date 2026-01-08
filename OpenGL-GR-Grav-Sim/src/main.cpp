@@ -1,9 +1,11 @@
 #define M_PI        3.14159265358979323846264338327950288   /* pi */
+#define GLM_ENABALE_EXPERIMENTAL
 
 #include "integration.h"
 #include "shaders_c.h"
 #include "celestial_body_class.h"
 #include "camera_class.h"
+#include "objects.h"
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
@@ -528,65 +530,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	fs::path fragmentPath = fs::path("assets") / "shader.fs";
 	Shader myShader(vertexPath.string().c_str(), fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
 
-	float vertices[] = { // Creates a cube
-	-0.5f, -0.5f, -0.5f,
-	 0.5f, -0.5f, -0.5f,
-	 0.5f,  0.5f, -0.5f,
-	 0.5f,  0.5f, -0.5f,
-	-0.5f,  0.5f, -0.5f,
-	-0.5f, -0.5f, -0.5f,
-
-	-0.5f, -0.5f,  0.5f,
-	 0.5f, -0.5f,  0.5f,
-	 0.5f,  0.5f,  0.5f,
-	 0.5f,  0.5f,  0.5f,
-	-0.5f,  0.5f,  0.5f,
-	-0.5f, -0.5f,  0.5f,
-
-	-0.5f,  0.5f,  0.5f,
-	-0.5f,  0.5f, -0.5f,
-	-0.5f, -0.5f, -0.5f,
-	-0.5f, -0.5f, -0.5f,
-	-0.5f, -0.5f,  0.5f,
-	-0.5f,  0.5f,  0.5f,
-
-	 0.5f,  0.5f,  0.5f,
-	 0.5f,  0.5f, -0.5f,
-	 0.5f, -0.5f, -0.5f,
-	 0.5f, -0.5f, -0.5f,
-	 0.5f, -0.5f,  0.5f,
-	 0.5f,  0.5f,  0.5f,
-
-	-0.5f, -0.5f, -0.5f,
-	 0.5f, -0.5f, -0.5f,
-	 0.5f, -0.5f,  0.5f,
-	 0.5f, -0.5f,  0.5f,
-	-0.5f, -0.5f,  0.5f,
-	-0.5f, -0.5f, -0.5f,
-
-	-0.5f,  0.5f, -0.5f,
-	 0.5f,  0.5f, -0.5f,
-	 0.5f,  0.5f,  0.5f,
-	 0.5f,  0.5f,  0.5f,
-	-0.5f,  0.5f,  0.5f,
-	-0.5f,  0.5f, -0.5f
-	};
-
-	// Graphical Buffers and Arrays
-	unsigned int VBO, VAO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
 	// Render Objects
 	render_object body1, body2, body1_edit, body2_edit;
 	body1.body_num = 1; body1_edit.body_num = 1;
@@ -600,8 +543,14 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lastFrame = 0.0f; // Time of last frame
+	
+	objects::Cube cubehead1(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos1);
+	objects::Cube cubehead2(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos2);
 
-	bool showCameraSettings = false;
+	objects::arrow point(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
+
+	//CylinderArrow cylhead1(1.0f, 2.0f, 32, glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
+	//CylinderArrow cylhead2(0.5f, 1.0f, 32, glm::vec3{ 0.0f, -2.0f, 0.0f }, glm::vec3{ 2.0f, -1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -653,6 +602,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				checkpt_f = false;
 				P_cv.notify_one();
 			}
+			// Vector Input Fields
 			ImGui_Input_Vector_Fields(pos, body1_edit);
 			ImGui_Input_Vector_Fields(vel, body1_edit);
 			ImGui_Input_Vector_Fields(mass, body1_edit);
@@ -673,8 +623,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			ImGui::End();
 		}
 
-		glBindVertexArray(VAO);
-
 		cam.look(view);
 		cam.project(projection, SCR_HEIGHT, SCR_WIDTH);
 
@@ -683,21 +631,19 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		myShader.setMat4("view", view); // sets the calculated view matrix to the uniform variable view matrix called within the vertex shader
 		myShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
 
-		// Body 1
-		glm::mat4 model_1 = glm::mat4(1.0f);
-		glm::vec3 pos1 = (glm::vec3)body1.pos; // grabs the current position of Body 1
-		model_1 = glm::translate(model_1, pos1); // translates model matrix using the current position of Body 1
-		myShader.setMat4("model", model_1); // sets the calculated model matrix for Body 1 to the model matrix called within the vertex shader
+		//// Body 1
+		cubehead1.setTransform(body1.pos, 1.0f);
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);  // Updates the draw array with the current values for Body 1 set in the shader
+		cubehead1.draw(&myShader);
 
-		// Body 2
-		glm::mat4 model_2 = glm::mat4(1.0f);
-		glm::vec3 pos2 = (glm::vec3)body2.pos; // grabs the current position of Body 2
-		model_2 = glm::translate(model_2, pos2); // translates model matrix using the current position of Body 2
-		myShader.setMat4("model", model_2); // sets the calculated model matrix for Body 2 to the model matrix called within the vertex shader
+		//// Body 2
+		cubehead2.setTransform(body2.pos, 1.0f);
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);  // Updates the draw array with the current values for Body 2 set in the shader
+		cubehead2.draw(&myShader);
+
+		point.transform(body2.pos, body2.vel);
+
+		point.draw(&myShader);
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {

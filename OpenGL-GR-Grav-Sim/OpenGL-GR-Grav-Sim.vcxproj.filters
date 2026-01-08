@@ -47,7 +47,10 @@
     <ClInclude Include="assets\shader.fs">
       <Filter>Resource Files</Filter>
     </ClInclude>
-    <ClInclude Include="camera_class.h">
+    <ClInclude Include="include\camera_class.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\objects.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
