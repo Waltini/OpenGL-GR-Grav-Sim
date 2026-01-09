@@ -1,6 +1,7 @@
 #define M_PI        3.14159265358979323846264338327950288   /* pi */
 #define GLM_ENABALE_EXPERIMENTAL
 
+#include "formulae.h"
 #include "integration.h"
 #include "shaders_c.h"
 #include "celestial_body_class.h"
@@ -265,6 +266,7 @@ struct ray {
 struct render_object {
 	dvec3 pos;
 	dvec3 vel;
+	dvec3 accl;
 	double mass;
 	int body_num;
 
@@ -547,7 +549,11 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	objects::Cube cubehead1(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos1);
 	objects::Cube cubehead2(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos2);
 
-	objects::arrow point(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
+	objects::arrow v_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
+	objects::arrow v_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
+
+	objects::arrow a_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
+	objects::arrow a_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
 
 	//CylinderArrow cylhead1(1.0f, 2.0f, 32, glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
 	//CylinderArrow cylhead2(0.5f, 1.0f, 32, glm::vec3{ 0.0f, -2.0f, 0.0f }, glm::vec3{ 2.0f, -1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
@@ -578,6 +584,13 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			body2_edit.vel = body2.vel;
 			body2_edit.mass = body2.mass;
 		}
+
+		// Relative acceleration of the current state
+		dvec3 a_rel = PN_acceleration(body1.pos, body2.pos, body1.vel, body2.vel, body1.mass, body2.mass);
+		dvec3 a1, a2;
+		resolve_rel_accel(a_rel, a1, a2, m1, m2); // Seperates the individual accelerations of each body given the mass ratio
+		body1.accl = a1;
+		body2.accl = a2;
 
 		// Input processing
 		process_input(window, body1, body2, deltaTime);
@@ -641,9 +654,15 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		cubehead2.draw(&myShader);
 
-		point.transform(body2.pos, body2.vel);
+		v_arrow_1.transform(body1.pos, body1.vel);
+		v_arrow_2.transform(body2.pos, body2.vel);
+		a_arrow_1.transform(body1.pos, body1.accl);
+		a_arrow_2.transform(body2.pos, body2.accl);
 
-		point.draw(&myShader);
+		v_arrow_1.draw(&myShader);
+		v_arrow_2.draw(&myShader);
+		a_arrow_1.draw(&myShader);
+		a_arrow_2.draw(&myShader);
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
