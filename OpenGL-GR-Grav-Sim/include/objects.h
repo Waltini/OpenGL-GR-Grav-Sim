@@ -15,9 +15,9 @@ namespace objects {
 
     namespace detail {}
 
-    class Cube {
+    class cube {
     public:
-        Cube(
+        cube(
             float length,
             glm::vec3 colour,
             glm::vec3 position
@@ -27,7 +27,7 @@ namespace objects {
             setTransform(position, length);
             setupBuffers();
         }
-        ~Cube()
+        ~cube()
         {
             glDeleteVertexArrays(1, &c_VAO);
             glDeleteBuffers(1, &c_VBO);
@@ -125,91 +125,128 @@ namespace objects {
             const glm::vec3& magnitude,
             const glm::vec3& color,
             float body_radius,
-            int sections
+            const int sections
         )
             : colour(color),
             radius_offset(body_radius),
             a_position(position),
             a_direction(glm::normalize(magnitude)),
-            neck_baseHeight((glm::length(magnitude) * velocityScalar) + radius_offset)
+            neck_baseHeight((glm::length(magnitude) * vectorScalar) + radius_offset)
         {
-            generateHeadMesh(sections);
-            generateNeckMesh(sections);
+            if (glm::length2(magnitude) < 0.0625) { draw_f = false; }
+            generateMesh(sections);
 
-            setupBuffers(head_VAO, head_VBO, head_vertices);
-            setupBuffers(neck_VAO, neck_VBO, neck_vertices);
+            setupBuffers();
+
+            if (0.0625f < glm::length2(magnitude) < 1.0f) {
+                neck_radialScale = 1.0f / 3.0f;
+                head_lengthScale = 1.0f / 3.0f;
+                head_radialScale = 1.0f / 3.0f;
+            }
+            else if (glm::length2(magnitude) < 4.0f) {
+                float val = glm::length(magnitude);
+                neck_radialScale = (2.0f / 3.0f) * val - (1.0f / 3.0f);
+                head_lengthScale = (2.0f / 3.0f) * val - (1.0f / 3.0f);
+                head_radialScale = (2.0f / 3.0f) * val - (1.0f / 3.0f);
+            }
 
             updateModelMatrices();
         }
+        ~arrow()
+        {
+            glDeleteVertexArrays(1, &m_VAO);
+            glDeleteBuffers(1, &m_VBO);
+        }
 
-        void transform(const glm::vec3& position, const glm::vec3& magnitude) {
+        void transform(const glm::vec3& position, const glm::vec3& magnitude, const float radius) {
+            if (glm::length2(magnitude) < 0.0625) { draw_f = false; }
+            else { draw_f = true; }
+
+            radius_offset = radius;
             a_position = position;
             a_direction = glm::normalize(magnitude);
 
-            neck_lengthScale = ((glm::length(magnitude) * velocityScalar) + radius_offset) / neck_baseHeight;
+            neck_lengthScale = ((glm::length(magnitude) * vectorScalar) + radius) / neck_baseHeight;
+            neck_radialScale = 1.0f;
+            head_lengthScale = 1.0f;
+            head_radialScale = 1.0f;
+
+            if (0.0625f < glm::length2(magnitude) < 1.0f) {
+                neck_radialScale = 2.0f / 3.0f;
+                head_lengthScale = 2.0f / 3.0f;
+                head_radialScale = 2.0f / 3.0f;
+            }
+            else if (glm::length2(magnitude) < 4.0f) {
+                float val = glm::length(magnitude);
+                neck_radialScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
+                head_lengthScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
+                head_radialScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
+            }
 
             updateModelMatrices();
         }
 
-        void resize(float head_newLength, float head_newRadius, float neck_newLength, float neck_newRadius) {
-            head_lengthScale = head_newLength / head_baseHeight;
-            neck_lengthScale = neck_newLength / neck_baseHeight;
-
-            head_radialScale = head_newRadius / head_baseRadius;
-            neck_radialScale = neck_newRadius / neck_baseRadius;
-        }
-
         void draw(Shader* shader) {
-            shader->use();
+            if (draw_f) {
+                shader->use();
 
-            shader->setVec3("colour", colour);
+                shader->setVec3("colour", colour);
 
-            // Neck
-            shader->setMat4("model", neck_model);
+                glBindVertexArray(m_VAO);
 
-            glBindVertexArray(neck_VAO);
+                // Head
+                shader->setMat4("model", head_model);
 
-            // Sides
-            glDrawArrays(GL_TRIANGLES, 0, neck_vertices.size());
+                // Cone sides
+                glDrawArrays(GL_TRIANGLES, 0, head_sideVertexCount);
 
-            // Head
-            shader->setMat4("model", head_model);
+                // Base
+                glDrawArrays(
+                    GL_TRIANGLE_FAN,
+                    head_sideVertexCount,
+                    head_baseVertexCount
+                );
 
-            glBindVertexArray(head_VAO);
+                // Neck
+                shader->setMat4("model", neck_model);
 
-            // Cone sides
-            glDrawArrays(GL_TRIANGLES, 0, head_sideVertexCount);
-
-            // Base
-            glDrawArrays(
-                GL_TRIANGLE_FAN,
-                head_baseOffset,
-                head_baseVertexCount
-            );
+                // Sides
+                glDrawArrays(GL_TRIANGLES, neck_offset, neck_sideVertexCount);
+            }
         }
+
 
     private:
-        GLuint neck_VBO, neck_VAO;
-        GLuint head_VBO, head_VAO;
+        GLuint m_VBO, m_VAO;
+        bool draw_f = true;
 
-        std::vector<glm::vec3> neck_vertices;
-        std::vector<glm::vec3> head_vertices;
+        // --------------------------------------------------
+        // Matrices and Vertices
+        // --------------------------------------------------
+        glm::mat4 neck_model{ 1.0f };
+        glm::mat4 head_model{ 1.0f };
+        std::vector<glm::vec3> m_vertices;
 
+        // --------------------------------------------------
+        // Characteristic Vectors
+        // --------------------------------------------------
+        glm::vec3 a_position{ 0.0f };
+        glm::vec3 a_direction{ 0.0f, 1.0f, 0.0f };
         glm::vec3 colour{ 1.0f };
 
         // --------------------------------------------------
         // Conversion
         // --------------------------------------------------
         float radius_offset;
-        const float velocityScalar = 0.5f; // 1.5f
+        const float vectorScalar = 0.005f; // 1.5f
 
         // --------------------------------------------------
         // Ranges
         // --------------------------------------------------
         int neck_sideVertexCount{ 0 };
         int head_sideVertexCount{ 0 };
-        int head_baseOffset{ 0 };
         int head_baseVertexCount{ 0 };
+        int neck_offset{ 0 };
 
         // --------------------------------------------------
         // Scaling
@@ -217,20 +254,10 @@ namespace objects {
         // Neck
         float neck_baseHeight{ 1.0f };
         float neck_lengthScale{ 1.0f };
-        const float neck_baseRadius{ 0.125 };
         float neck_radialScale{ 1.0f };
         // Head
-        const float head_baseHeight{ 0.667f };
         float head_lengthScale{ 1.0f };
-        const float head_baseRadius{ 0.25f };
         float head_radialScale{ 1.0f };
-
-
-        glm::vec3 a_position{ 0.0f };
-        glm::vec3 a_direction{ 0.0f, 1.0f, 0.0f };
-
-        glm::mat4 neck_model{ 1.0f };
-        glm::mat4 head_model{ 1.0f };
 
         void updateModelMatrices()
         {
@@ -244,34 +271,9 @@ namespace objects {
             head_model = base * glm::translate(glm::mat4{ 1.0f }, glm::vec3{ 0.0f, neck_baseHeight * neck_lengthScale, 0.0f }) * glm::scale(glm::mat4{ 1.0f }, glm::vec3{ head_radialScale, head_lengthScale, head_radialScale });
         }
 
-        void generateNeckMesh(int sections) {
+        void generateMesh(const int sections) {
 
-            neck_vertices.clear();
-
-            for (int i = 0; i <= sections; i++) {
-                float a0 = 2.0f * M_PI * i / sections;
-                float a1 = 2.0f * M_PI * (i + 1) / sections;
-
-                glm::vec3 p0(neck_baseRadius * cos(a0), neck_baseHeight, neck_baseRadius * sin(a0));
-                glm::vec3 p1(neck_baseRadius * cos(a1), neck_baseHeight, neck_baseRadius * sin(a1));
-                glm::vec3 p2(neck_baseRadius * cos(a0), 0.0f, neck_baseRadius * sin(a0));
-                glm::vec3 p3(neck_baseRadius * cos(a1), 0.0f, neck_baseRadius * sin(a1));
-
-                // Vertices
-                neck_vertices.push_back(p0);
-                neck_vertices.push_back(p2);
-                neck_vertices.push_back(p1);
-
-                neck_vertices.push_back(p2);
-                neck_vertices.push_back(p1);
-                neck_vertices.push_back(p3);
-            }
-
-            neck_sideVertexCount = static_cast<int>(neck_vertices.size());
-        }
-
-        void generateHeadMesh(int sections) {
-            head_vertices.clear();
+            m_vertices.clear();
 
             // =======================
             // Cone sides (TRIANGLES)
@@ -281,51 +283,73 @@ namespace objects {
                 float a0 = 2.0f * M_PI * i / sections;
                 float a1 = 2.0f * M_PI * (i + 1) / sections;
 
-                glm::vec3 p0(head_baseRadius * cos(a0), 0.0f, head_baseRadius * sin(a0));
-                glm::vec3 p1(head_baseRadius * cos(a1), 0.0f, head_baseRadius * sin(a1));
-                glm::vec3 apex(0.0f, head_baseHeight, 0.0f);
+                glm::vec3 p0(0.025 * cosf(a0), 0.0f, 0.025 * sinf(a0));
+                glm::vec3 p1(0.025 * cosf(a1), 0.0f, 0.025 * sinf(a1));
+                glm::vec3 apex(0.0f, 0.0667, 0.0f);
 
                 // One triangle per section
-                head_vertices.push_back(apex);
-                head_vertices.push_back(p0);
-                head_vertices.push_back(p1);
+                m_vertices.push_back(apex);
+                m_vertices.push_back(p0);
+                m_vertices.push_back(p1);
             }
 
-            head_sideVertexCount = static_cast<int>(head_vertices.size());
+            head_sideVertexCount = static_cast<int>(m_vertices.size());
 
             // =======================
             // Base disk (TRIANGLE_FAN)
             // =======================
-            head_baseOffset = head_sideVertexCount;
 
             // center
-            head_vertices.emplace_back(0.0f, 0.0f, 0.0f);
+            m_vertices.emplace_back(0.0f, 0.0f, 0.0f);
 
             for (int i = 0; i <= sections; i++)
             {
                 float a = 2.0f * M_PI * i / sections;
-                head_vertices.emplace_back(
-                    head_baseRadius * cos(a),
+                m_vertices.emplace_back(
+                    0.025 * cosf(a),
                     0.0f,
-                    head_baseRadius * sin(a)
+                    0.025 * sinf(a)
                 );
             }
 
             head_baseVertexCount =
-                static_cast<int>(head_vertices.size()) - head_baseOffset;
+                static_cast<int>(m_vertices.size()) - head_sideVertexCount;
+
+            neck_offset = head_baseVertexCount + head_sideVertexCount;
+
+            for (int i = 0; i <= sections; i++) {
+                float a0 = 2.0f * M_PI * i / sections;
+                float a1 = 2.0f * M_PI * (i + 1) / sections;
+
+                glm::vec3 p0(0.0125 * cosf(a0), neck_baseHeight, 0.0125 * sinf(a0));
+                glm::vec3 p1(0.0125 * cosf(a1), neck_baseHeight, 0.0125 * sinf(a1));
+                glm::vec3 p2(0.0125 * cosf(a0), 0.0f, 0.0125 * sinf(a0));
+                glm::vec3 p3(0.0125 * cosf(a1), 0.0f, 0.0125 * sinf(a1));
+
+                // Vertices
+                m_vertices.push_back(p0);
+                m_vertices.push_back(p2);
+                m_vertices.push_back(p1);
+
+                m_vertices.push_back(p2);
+                m_vertices.push_back(p1);
+                m_vertices.push_back(p3);
+            }
+
+            neck_sideVertexCount = static_cast<int>(m_vertices.size()) - neck_offset;
         }
 
-        void setupBuffers(GLuint &VAO, GLuint &VBO, std::vector<glm::vec3> &vertices) {
-            glGenVertexArrays(1, &VAO);
-            glGenBuffers(1, &VBO);
+        void setupBuffers() {
+            glGenVertexArrays(1, &m_VAO);
+            glGenBuffers(1, &m_VBO);
 
-            glBindVertexArray(VAO);
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBindVertexArray(m_VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
 
             glBufferData(
                 GL_ARRAY_BUFFER,
-                vertices.size() * sizeof(glm::vec3),
-                vertices.data(),
+                m_vertices.size() * sizeof(glm::vec3),
+                m_vertices.data(),
                 GL_STATIC_DRAW
             );
 
@@ -334,6 +358,134 @@ namespace objects {
                 sizeof(glm::vec3),
                 (void*)0
             );
+            glEnableVertexAttribArray(0);
+
+            glBindVertexArray(0);
+        }
+    };
+
+    class sphere {
+    public:
+        sphere(
+            int sectors,
+            int stacks,
+            glm::vec3 color,
+            glm::vec3 pos
+        )
+            : colour(color)
+        {
+            generateMesh(sectors, stacks); // unit sphere
+            setupBuffers();
+            transform(pos, m_radius);
+        }
+        ~sphere()
+        {
+            glDeleteVertexArrays(1, &s_VAO);
+            glDeleteBuffers(1, &s_VBO);
+            glDeleteBuffers(1, &s_EBO);
+        }
+
+        void transform(const glm::vec3& pos, float radius) {
+            m_position = pos;
+            m_radius = radius;
+            updateModelMatrix();
+        }
+
+        void draw(Shader* shader) {
+            shader->use();
+            shader->setVec3("colour", colour);
+            shader->setMat4("model", s_model);
+
+            glBindVertexArray(s_VAO);
+            glDrawElements(GL_TRIANGLES,
+                static_cast<GLsizei>(m_indices.size()),
+                GL_UNSIGNED_INT,
+                nullptr);
+            glBindVertexArray(0);
+        }
+
+    private:
+        GLuint s_VAO{}, s_VBO{}, s_EBO{};
+
+        std::vector<glm::vec3> m_vertices;
+        std::vector<glm::vec3> m_normals;
+        std::vector<unsigned int> m_indices;
+
+        glm::mat4 s_model{ 1.0f };
+        glm::vec3 colour;
+
+        glm::vec3 m_position{ 0.0f };
+        float m_radius{ 1.0f };
+
+        void updateModelMatrix() {
+            s_model = glm::translate(glm::mat4(1.0f), m_position);
+            s_model = glm::scale(s_model, glm::vec3(m_radius));
+        }
+
+        void generateMesh(int sectorCount, int stackCount) {
+            m_vertices.clear();
+            m_normals.clear();
+            m_indices.clear();
+
+            float sectorStep = 2.0f * M_PI / sectorCount;
+            float stackStep = M_PI / stackCount;
+
+            for (int i = 0; i <= stackCount; ++i) {
+                float phi = M_PI / 2.0f - i * stackStep;
+                float xy = cosf(phi);
+                float z = sinf(phi);
+
+                for (int j = 0; j <= sectorCount; ++j) {
+                    float theta = j * sectorStep;
+
+                    float x = xy * cosf(theta);
+                    float y = xy * sinf(theta);
+
+                    glm::vec3 pos{ x, y, z };
+                    m_vertices.push_back(pos);
+                    m_normals.push_back(glm::normalize(pos));
+                }
+            }
+
+            for (int i = 0; i < stackCount; ++i) {
+                int k1 = i * (sectorCount + 1);
+                int k2 = k1 + sectorCount + 1;
+
+                for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
+                    if (i != 0) {
+                        m_indices.push_back(k1);
+                        m_indices.push_back(k2);
+                        m_indices.push_back(k1 + 1);
+                    }
+                    if (i != (stackCount - 1)) {
+                        m_indices.push_back(k1 + 1);
+                        m_indices.push_back(k2);
+                        m_indices.push_back(k2 + 1);
+                    }
+                }
+            }
+        }
+
+        void setupBuffers() {
+            glGenVertexArrays(1, &s_VAO);
+            glGenBuffers(1, &s_VBO);
+            glGenBuffers(1, &s_EBO);
+
+            glBindVertexArray(s_VAO);
+
+            glBindBuffer(GL_ARRAY_BUFFER, s_VBO);
+            glBufferData(GL_ARRAY_BUFFER,
+                m_vertices.size() * sizeof(glm::vec3),
+                m_vertices.data(),
+                GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_EBO);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                m_indices.size() * sizeof(unsigned int),
+                m_indices.data(),
+                GL_STATIC_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
             glEnableVertexAttribArray(0);
 
             glBindVertexArray(0);

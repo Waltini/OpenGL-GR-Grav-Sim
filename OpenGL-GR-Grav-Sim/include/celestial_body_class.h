@@ -14,14 +14,14 @@ private:
     dvec3 pos;
     dvec3 vel;
     double mass;
-    double radius = calcSphereRadius(mass);
+    double radius;
 
     double calcSphereRadius(double M) {
         if (M > 3.003e-6) {
-            return (10e2 * std::cbrt((3 * (M - 3.003e-6)) / (4 * M_PI * 9247304))) + 0.5;
+            return (50 * std::cbrt((3 * (M - 3.003 * 10e-6)) / (4 * M_PI * 9247304)) + 0.05);
         }
         else {
-            return 0.5;
+            return 0.05;
         }
     }
 
@@ -32,6 +32,7 @@ public:
         if (m <= 0) {
             mass = 1.0;
         }
+        radius = calcSphereRadius(mass);
     }
 
     // Getters

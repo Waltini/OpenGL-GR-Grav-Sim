@@ -142,10 +142,13 @@ integrate_result RK45_integration::RK45_integrate(dmat43 y, double total_dt, dou
 	int accepts = 0, rejects = 0, count = 0;
 	double tot_h = 0.0;
 
-	double h = RK45_integration::timestep;
-	double temp;
+	int since_last_accept = 0;
 
-	while (intg_t < total_dt) {
+	double h = RK45_integration::timestep;
+
+	bool no_crash = true;
+
+	while (intg_t < total_dt && no_crash) {
 		if (intg_t + h > total_dt) {
 			h = total_dt - intg_t;
 		}
@@ -156,9 +159,12 @@ integrate_result RK45_integration::RK45_integrate(dmat43 y, double total_dt, dou
 			intg_t += h;
 			state = RK45_values.state_y;
 			accepts++;
+			since_last_accept = 0;
 		}
 		else {
 			rejects++;
+			since_last_accept++;
+			if (since_last_accept >= 50) {no_crash = false;}
 		}
 
 		double adapt = safety * std::pow(1.0 / (RK45_values.err_norm + 1e-16), 0.2);
@@ -172,7 +178,7 @@ integrate_result RK45_integration::RK45_integrate(dmat43 y, double total_dt, dou
 	RK45_integration::timestep = h;
 
 	integrate_result result{
-		state, 0.0, count, accepts, rejects, (tot_h / count)
+		state, 0.0, count, accepts, rejects, (tot_h / count), !no_crash
 	};
 
 	return result;
