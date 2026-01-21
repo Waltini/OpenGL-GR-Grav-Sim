@@ -268,6 +268,7 @@ struct render_object {
 	dvec3 vel;
 	dvec3 accl;
 	double mass;
+	float radius;
 	int body_num;
 
 	// Operations
@@ -303,6 +304,7 @@ private:
 	clsState frontBuffer; // The front buffer. Used for displaying the position of the bodies and the buffer used by the rendering function within the main thread
 	glm::vec2 mousePos; // The mouse buffer. Stores the location of the most recent mouse input
 	dustack editStack; // Custom data structure for undoing and redoing edits
+	float sim_speed = 1.0f;
 	int GUI_ID; // The GUI ID. Informs the rendering what gui (in context of the bodies) to display at a given moment
 
 	void bufferSet(celestial_body& body1, celestial_body& body2) {
@@ -360,6 +362,8 @@ public:
 
 	mathState readBackBuffer() const { return backBuffer; } // returns the back buffer
 	clsState readFrontBuffer() const { return frontBuffer; } // returns the back buffer
+	float getSimSpeed() const { return sim_speed; }
+	void setSimSpeed(const float speed) { sim_speed = speed; }
 
 	void physicsStateUpdate(const dmat43 state) {
 		backBuffer.y = state;
@@ -460,7 +464,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 	double ct, lt = 0.0, accum_t = 0.0;
 	double physics_dt = 0.033;
 	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
-	integrate_result result(mat, 0.0, 0, 0, 0, 0.0); 
+	integrate_result result(mat, 0.0, 0, 0, 0, 0.0, false); 
 
 	int count = 0, accepts = 0, rejects = 0;
 
@@ -480,7 +484,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 		//halted = false; // After checking that it doesn't need to halted it then sets the halted variable to false
 
 		mathState BackBuffer = bufbx.readBackBuffer(); // Reads the current backbuffer
-
+		
 		ct = glfwGetTime();
 		double delta = ct - lt - lock_duration; // change in time since last
 		lt = ct;
@@ -492,7 +496,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 
 			bufbx.physicsStateUpdate(result.state_y);
 
-			std::lock_guard<std::mutex> lock(mtx);
+			std::unique_lock<std::mutex> swap_lock(mtx);
 			bufbx.changeBuffers();
 		}
 
@@ -532,6 +536,8 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	fs::path fragmentPath = fs::path("assets") / "shader.fs";
 	Shader myShader(vertexPath.string().c_str(), fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
 
+	glEnable(GL_DEPTH_TEST);
+
 	// Render Objects
 	render_object body1, body2, body1_edit, body2_edit;
 	body1.body_num = 1; body1_edit.body_num = 1;
@@ -545,18 +551,15 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lastFrame = 0.0f; // Time of last frame
-	
-	objects::Cube cubehead1(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos1);
-	objects::Cube cubehead2(1.0f, glm::vec3(1.0f, 0.0f, 0.0f), pos2);
 
 	objects::arrow v_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
 	objects::arrow v_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
 
-	objects::arrow a_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
+	objects::arrow a_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 5.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
 	objects::arrow a_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
 
-	//CylinderArrow cylhead1(1.0f, 2.0f, 32, glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
-	//CylinderArrow cylhead2(0.5f, 1.0f, 32, glm::vec3{ 0.0f, -2.0f, 0.0f }, glm::vec3{ 2.0f, -1.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f });
+	objects::sphere sphere1(32, 16, glm::vec3{ 1.0f, 1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 0.0f });
+	objects::sphere sphere2(32, 16, glm::vec3{ 1.0f, 1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 0.0f });
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -573,9 +576,11 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		body1.pos = b1.getPos();
 		body1.vel = b1.getVel();
 		body1.mass = b1.getMass();
+		body1.radius = b1.getRadius();
 		body2.pos = b2.getPos();
 		body2.vel = b2.getVel();
 		body2.mass = b2.getMass();
+		body2.radius = b2.getRadius();
 		if (!edit_f) {
 			body1_edit.pos = body1.pos;
 			body1_edit.vel = body1.vel;
@@ -588,9 +593,12 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		// Relative acceleration of the current state
 		dvec3 a_rel = PN_acceleration(body1.pos, body2.pos, body1.vel, body2.vel, body1.mass, body2.mass);
 		dvec3 a1, a2;
-		resolve_rel_accel(a_rel, a1, a2, m1, m2); // Seperates the individual accelerations of each body given the mass ratio
+		resolve_rel_accel(a_rel, a1, a2, body1.mass, body2.mass); // Seperates the individual accelerations of each body given the mass ratio
 		body1.accl = a1;
 		body2.accl = a2;
+
+		//std::cout << "[A1] x = " << body1.accl.x << " y = " << body1.accl.y << " z = " << body1.accl.z << std::endl;
+		//std::cout << "[A2] x = " << body2.accl.x << " y = " << body2.accl.y << " z = " << body2.accl.z << std::endl;
 
 		// Input processing
 		process_input(window, body1, body2, deltaTime);
@@ -645,24 +653,24 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		myShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
 
 		//// Body 1
-		cubehead1.setTransform(body1.pos, 1.0f);
+		sphere1.transform(body1.pos, body1.radius);
 
-		cubehead1.draw(&myShader);
+		sphere1.draw(&myShader);
 
 		//// Body 2
-		cubehead2.setTransform(body2.pos, 1.0f);
+		sphere2.transform(body2.pos, body2.radius);
 
-		cubehead2.draw(&myShader);
+		sphere2.draw(&myShader);
 
-		v_arrow_1.transform(body1.pos, body1.vel);
-		v_arrow_2.transform(body2.pos, body2.vel);
-		a_arrow_1.transform(body1.pos, body1.accl);
-		a_arrow_2.transform(body2.pos, body2.accl);
+		v_arrow_1.transform(body1.pos, body1.vel, body1.radius);
+		v_arrow_2.transform(body2.pos, body2.vel, body2.radius);
+		a_arrow_1.transform(body1.pos, body1.accl, body1.radius);
+		a_arrow_2.transform(body2.pos, body2.accl, body2.radius);
 
 		v_arrow_1.draw(&myShader);
 		v_arrow_2.draw(&myShader);
 		a_arrow_1.draw(&myShader);
-		a_arrow_2.draw(&myShader);
+		a_arrow_2.draw(&myShader); 
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
@@ -767,7 +775,7 @@ int main(int, char**)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	
 	// Window Creation
-	GLFWwindow* window = glfwCreateWindow(SCR_HEIGHT, SCR_WIDTH, "Hello World!!!", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_HEIGHT, SCR_WIDTH, "PNsim: Gravity Simulator 0.3.2", NULL, NULL);
 	if (!window)
 	{
 		std::cout << "Failed to create window" << std::endl;
