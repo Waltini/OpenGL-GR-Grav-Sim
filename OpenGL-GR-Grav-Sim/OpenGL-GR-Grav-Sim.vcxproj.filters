@@ -53,6 +53,9 @@
     <ClInclude Include="include\objects.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\crashtext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\shader.vs">
