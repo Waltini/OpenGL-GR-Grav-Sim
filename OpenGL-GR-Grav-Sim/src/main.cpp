@@ -7,6 +7,7 @@
 #include "celestial_body_class.h"
 #include "camera_class.h"
 #include "objects.h"
+#include "crashtext.h"
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
@@ -305,6 +306,7 @@ private:
 	glm::vec2 mousePos; // The mouse buffer. Stores the location of the most recent mouse input
 	dustack editStack; // Custom data structure for undoing and redoing edits
 	float sim_speed = 1.0f;
+	bool crash_flag;
 	int GUI_ID; // The GUI ID. Informs the rendering what gui (in context of the bodies) to display at a given moment
 
 	void bufferSet(celestial_body& body1, celestial_body& body2) {
@@ -363,7 +365,9 @@ public:
 	mathState readBackBuffer() const { return backBuffer; } // returns the back buffer
 	clsState readFrontBuffer() const { return frontBuffer; } // returns the back buffer
 	float getSimSpeed() const { return sim_speed; }
+	bool checkCrash() const { return crash_flag; }
 	void setSimSpeed(const float speed) { sim_speed = speed; }
+	void setCrash(const bool flag) { crash_flag = flag; crash::OnSimulationCrash();}
 
 	void physicsStateUpdate(const dmat43 state) {
 		backBuffer.y = state;
@@ -464,7 +468,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 	double ct, lt = 0.0, accum_t = 0.0;
 	double physics_dt = 0.033;
 	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
-	integrate_result result(mat, 0.0, 0, 0, 0, 0.0, false); 
+	integrate_result result(mat, 0, 0, 0, 0.0, false); 
 
 	int count = 0, accepts = 0, rejects = 0;
 
@@ -474,9 +478,10 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 
 		double lock_time_start = glfwGetTime();
 
-		std::unique_lock<std::mutex> lock_unique(mtx);
-		P_cv.wait(lock_unique, [] { return !pause; }); // Mutex unqiue_lock checks if the physics thread has been set to pause
-		lock_unique.unlock(); // Unlocks unique_lock
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			P_cv.wait(lock, [] { return !pause; });
+		}; // Mutex unqiue_lock checks if the physics thread has been set to pause
 
 		double lock_time_end = glfwGetTime();
 		double lock_duration = lock_time_end - lock_time_start;
@@ -496,8 +501,18 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 
 			bufbx.physicsStateUpdate(result.state_y);
 
-			std::unique_lock<std::mutex> swap_lock(mtx);
-			bufbx.changeBuffers();
+			{
+				std::lock_guard<std::mutex> lock(mtx);
+				if (result.crash_f) {
+					bufbx.setCrash(true);
+					pause = true;
+					accum_t = 0.0;
+				}
+				else {
+					bufbx.changeBuffers();
+				}
+			}
+			P_cv.notify_one();
 		}
 
 		count += result.count;
@@ -512,7 +527,6 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 }
 
 void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const char* glsl_version) {
-
 	// GLFW Set
 	glfwMakeContextCurrent(window); // sets the context of the window to current on the thread
 
@@ -521,6 +535,24 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls    
+
+	// 2. Load fonts FIRST
+	static const ImWchar ranges[] = {
+		0x0020, 0x00FF, // 
+		0x2010, 0x2027,
+		0,
+	};
+
+	fs::path fontPath = fs::path("assets") / "DejaVuSans.ttf";
+
+	io.Fonts->AddFontFromFileTTF(
+		fontPath.string().c_str(),
+		18.0f,
+		nullptr,
+		ranges
+	);
+
+	io.FontDefault = io.Fonts->Fonts.back();
 
 	// Setup Platform/Renderer backends
 	ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -609,6 +641,39 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+
+		// Crash GUI
+		if (bufbx.checkCrash()) {
+			ImGui::OpenPopup("A Crash Has Occured!");
+		}
+
+		ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f)); // First param finds the centre of the drawable area, the second param ensures it is centered even when resized, the pivot makes it true center.
+
+		if (ImGui::BeginPopupModal("A Crash Has Occured!", nullptr,
+			ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("%s", crash::crashQuote, 75.0f);
+			ImGui::Text("");
+
+			if (ImGui::Button("Abort")) {
+				pause = false;
+				P_cv.notify_one();
+				ImGui::CloseCurrentPopup();
+
+				glfwSetWindowShouldClose(window, true);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Reset")) {
+				bufbx.setCrash(false);
+				crash::has_crashed = false;
+				crash::crashQuote = nullptr;
+				bufbx.undoState();
+				bufbx.redoState();
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
 
 		// Test GUI
 		if (show) {
@@ -775,7 +840,7 @@ int main(int, char**)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	
 	// Window Creation
-	GLFWwindow* window = glfwCreateWindow(SCR_HEIGHT, SCR_WIDTH, "PNsim: Gravity Simulator 0.3.2", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_HEIGHT, SCR_WIDTH, "PNsim: Gravity Simulator 0.3.3", NULL, NULL);
 	if (!window)
 	{
 		std::cout << "Failed to create window" << std::endl;

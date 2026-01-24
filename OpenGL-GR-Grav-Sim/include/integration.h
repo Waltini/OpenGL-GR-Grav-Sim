@@ -26,16 +26,14 @@ struct substep_values {
 
 struct integrate_result {
 	dmat43 state_y;
-	double slip;
 	int count;
 	int accepts;
 	int rejects;
 	double avg_h;
 	bool crash_f;
-	char report[512];
 
-	integrate_result(dmat43 state, double slip, int count, int accepts, int rejects, double avg_h, bool crash) :
-		state_y(state), slip(slip), count(count), accepts(accepts), rejects(rejects), avg_h(avg_h), crash_f(crash) {
+	integrate_result(dmat43 state, int count, int accepts, int rejects, double avg_h, bool crash) :
+		state_y(state), count(count), accepts(accepts), rejects(rejects), avg_h(avg_h), crash_f(crash) {
 	}
 };
 
