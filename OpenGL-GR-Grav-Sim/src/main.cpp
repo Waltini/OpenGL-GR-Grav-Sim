@@ -17,6 +17,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+
 #include <iostream>
 #include <cmath>
 #include <fstream>
@@ -30,9 +31,18 @@
 #include <chrono>
 #include <thread>
 
+int SCR_WIDTH = 800;
+int SCR_HEIGHT = 600;
+//static int currentResCombo = 1;
+//const char* resolutions[] = { "1280x720", "1280x800", "1280x1024", "1360x768", "1366x768", "1440x900", "1600x900", "1600x1200", "1680x1050", "1920x1080", "1920x1200", "2560x1080", "2560x1440", "2560x1600", "3440x1440", "3840x2160" };
+//const int resolutionW[] = { 1280, 1280, 1280, 1360, 1366, 1440, 1600, 1600, 1680, 1920, 1920, 2560, 2560, 2560, 3440, 3840};
+//const int resolutionH[] = { 720, 800, 1024, 768, 768, 900, 900, 1200, 1050, 1080, 1200, 1080, 1440, 1600, 1440, 2160 };
+//void setResolution(int arrayNum) {
+//	SCR_WIDTH = resolutionW[arrayNum];
+//	SCR_HEIGHT = resolutionH[arrayNum];
+//}
 
-int SCR_WIDTH = 600;
-int SCR_HEIGHT = 800;
+constexpr float AXIS_LEN = 200.0f;
 
 camera cam(-90.0f, 0.0f, 800.0f / 2.0f, 600.0f / 2.0f, 45.0f);
 
@@ -289,6 +299,7 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods);
+void DrawOrientationGizmo(camera& cam, Shader* shader, glm::mat3 cornerRot, objects::arrow* axisX, objects::arrow* axisY, objects::arrow* axisZ, objects::sphere* dot, int winW, int winH);
 
 // Formatting Functions
 enum infields {
@@ -564,9 +575,15 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		std::cout << "Failed to initialise GLAD" << std::endl;
 	}
 
-	fs::path vertexPath = fs::path("assets") / "shader.vs";
-	fs::path fragmentPath = fs::path("assets") / "shader.fs";
-	Shader myShader(vertexPath.string().c_str(), fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
+	// Main View Shader
+	fs::path main_vertexPath = fs::path("assets") / "shader.vs";
+	fs::path main_fragmentPath = fs::path("assets") / "shader.fs";
+	Shader mainShader(main_vertexPath.string().c_str(), main_fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
+
+	// Corner View Shader
+	fs::path corner_vertexPath = fs::path("assets") / "shader.vs";
+	fs::path corner_fragmentPath = fs::path("assets") / "shader.fs";
+	Shader cornerShader(corner_vertexPath.string().c_str(), corner_fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -584,17 +601,93 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lastFrame = 0.0f; // Time of last frame
 
-	objects::arrow v_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
-	objects::arrow v_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, 0.5f, 32);
+	// Corner Diagram
+	glm::vec3 X_AXIS(AXIS_LEN, 0.0f, 0.0f);
+	glm::vec3 Y_AXIS(0.0f, AXIS_LEN, 0.0f);
+	glm::vec3 Z_AXIS(0.0f, 0.0f, AXIS_LEN);
 
-	objects::arrow a_arrow_1(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 5.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
-	objects::arrow a_arrow_2(glm::vec3{ 0.0f, 2.0f, 0.0f }, glm::vec3{ 0.0f, 3.0f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, 0.5f, 32);
+	objects::arrow axisX(
+		glm::vec3(0.0f),
+		X_AXIS,
+		glm::vec3(1, 0, 0), // red
+		0.02f,
+		16
+	);
+	objects::arrow axisY(
+		glm::vec3(0.0f),
+		Y_AXIS,
+		glm::vec3(0, 1, 0), // green
+		0.02f,
+		16
+	);
+	objects::arrow axisZ(
+		glm::vec3(0.0f),
+		Z_AXIS,
+		glm::vec3(0, 0, 1), // blue
+		0.02f,
+		16
+	);
 
-	objects::sphere sphere1(32, 16, glm::vec3{ 1.0f, 1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 0.0f });
-	objects::sphere sphere2(32, 16, glm::vec3{ 1.0f, 1.0f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 0.0f });
+	objects::sphere cornerDot(16, 8, glm::vec3(1.0f), glm::vec3(0.0f));
+
+	// Corner Rendering
+	const int size = 120;
+	const int pad = 10; // 10, 20
+
+
+	// Vector Arrows
+	objects::arrow v_arrow_1(
+		glm::vec3{ 0.0f, 2.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 3.0f, 0.0f }, 
+		glm::vec3{ 1.0f, 0.0f, 0.0f }, 
+		0.5f, 
+		32
+	);
+	objects::arrow v_arrow_2(
+		glm::vec3{ 0.0f, 2.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 3.0f, 0.0f }, 
+		glm::vec3{ 1.0f, 0.0f, 0.0f }, 
+		0.5f, 
+		32
+	);
+
+	objects::arrow a_arrow_1(
+		glm::vec3{ 0.0f, 2.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 5.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 1.0f, 0.0f }, 
+		0.5f, 
+		32
+	);
+	objects::arrow a_arrow_2(
+		glm::vec3{ 0.0f, 2.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 3.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 1.0f, 0.0f }, 
+		0.5f, 
+		32
+	);
+
+	// Sphere Bodies
+	objects::sphere sphere1(
+		32, 
+		16, 
+		glm::vec3{ 1.0f, 1.0f, 0.0f }, 
+		glm::vec3{ 0.0f, 0.0f, 0.0f }
+	);
+	objects::sphere sphere2(
+		32, 
+		16, 
+		glm::vec3{ 1.0f, 1.0f, 0.0f },
+		glm::vec3{ 0.0f, 0.0f, 0.0f }
+	);
 
 	while (!glfwWindowShouldClose(window))
 	{
+		if (SCR_WIDTH <= 1 || SCR_HEIGHT <= 1)
+		{
+			glfwPollEvents();
+			continue; // skip rendering entirely
+		}
+
 		// Front Buffer Snapshot
 		clsState snapshot = bufbx.readFrontBuffer(); // grabs the pointers for the celestial body class objects
 		celestial_body b1 = *snapshot.b1; // De-referenced Body 1
@@ -712,30 +805,35 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		cam.look(view);
 		cam.project(projection, SCR_HEIGHT, SCR_WIDTH);
 
-		myShader.use();
+		mainShader.use();
 		// uniform assigning
-		myShader.setMat4("view", view); // sets the calculated view matrix to the uniform variable view matrix called within the vertex shader
-		myShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
+		mainShader.setMat4("view", view); // sets the calculated view matrix to the uniform variable view matrix called within the vertex shader
+		mainShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
 
 		//// Body 1
 		sphere1.transform(body1.pos, body1.radius);
 
-		sphere1.draw(&myShader);
+		sphere1.draw(&mainShader);
 
 		//// Body 2
 		sphere2.transform(body2.pos, body2.radius);
 
-		sphere2.draw(&myShader);
+		sphere2.draw(&mainShader);
 
 		v_arrow_1.transform(body1.pos, body1.vel, body1.radius);
 		v_arrow_2.transform(body2.pos, body2.vel, body2.radius);
 		a_arrow_1.transform(body1.pos, body1.accl, body1.radius);
 		a_arrow_2.transform(body2.pos, body2.accl, body2.radius);
 
-		v_arrow_1.draw(&myShader);
-		v_arrow_2.draw(&myShader);
-		a_arrow_1.draw(&myShader);
-		a_arrow_2.draw(&myShader); 
+		axisX.transform(glm::vec3(0), cam.getCornerRot() * X_AXIS, 0.1f, 5.0f); // radius offset 0.02
+		axisY.transform(glm::vec3(0), cam.getCornerRot() * Y_AXIS, 0.1f, 5.0f);
+		axisZ.transform(glm::vec3(0), cam.getCornerRot() * Z_AXIS, 0.1f, 5.0f);
+		cornerDot.transform(glm::vec3(0), 0.15f); // radius 0.02, 0.1
+
+		v_arrow_1.draw(&mainShader);
+		v_arrow_2.draw(&mainShader);
+		a_arrow_1.draw(&mainShader);
+		a_arrow_2.draw(&mainShader); 
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
@@ -814,6 +912,71 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			ImGui::EndMainMenuBar();
 		}
 
+		int vx = SCR_WIDTH - size - 2 * pad; // originally 1 * pad (pad = 20)
+		int vy = SCR_HEIGHT - size - 3 * pad; // originally 1 * pad (pad = 20)
+
+		// --------------------------------------------------
+		// Viewport setup
+		// --------------------------------------------------
+		glViewport(vx, vy, size, size);
+
+		// --------------------------------------------------
+		// Fixed view + projection
+		// --------------------------------------------------
+		glm::mat4 proj = glm::ortho(
+			-1.5f, 1.5f,
+			-1.5f, 1.5f,
+			-5.0f, 5.0f
+		);
+
+		glm::mat4 view = glm::lookAt(
+			glm::vec3(0, 0, 3),
+			glm::vec3(0, 0, 0),
+			glm::vec3(0, 1, 0)
+		);
+
+		cornerShader.use();
+		cornerShader.setMat4("projection", proj);
+		cornerShader.setMat4("view", view);
+
+		// --------------------------------------------------
+		// Draw arrows + sphere
+		// --------------------------------------------------
+		axisX.draw(&cornerShader);
+		axisY.draw(&cornerShader);
+		axisZ.draw(&cornerShader);
+		cornerDot.draw(&cornerShader);
+
+		// --------------------------------------------------
+		// Draw labels (ImGui overlay)
+		// --------------------------------------------------
+		ImDrawList* dl = ImGui::GetForegroundDrawList();
+		ImVec2 origin(
+			(float)vx,
+			(float)(SCR_HEIGHT - vy - size)
+		);
+
+		auto Project = [&](glm::vec3 p) {
+			glm::vec4 clip = proj * view * glm::vec4(p, 1.0f);
+			clip /= clip.w;
+			return ImVec2(
+				origin.x + (clip.x * 0.5f + 0.5f) * size,
+				origin.y + (-clip.y * 0.5f + 0.5f) * size
+			);
+			};
+
+		dl->AddText(Project(cam.getCornerRot() * glm::vec3(1.2f, -0.1f, 0)), // 1.2f, 0.0f, 0.0f
+			IM_COL32(255, 80, 80, 255), "X");
+		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0.1f, 1.2f, 0)), // 0.0f, 1.2f, 0.0f
+			IM_COL32(80, 255, 80, 255), "Y");
+		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0, -0.1f, 1.2f)), // 0.0f, 0.0f, 1.2f
+			IM_COL32(80, 80, 255, 255), "Z");
+
+		// --------------------------------------------------
+		// Restore state
+		// --------------------------------------------------
+		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
 		// Imgui Render
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -840,7 +1003,7 @@ int main(int, char**)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	
 	// Window Creation
-	GLFWwindow* window = glfwCreateWindow(SCR_HEIGHT, SCR_WIDTH, "PNsim: Gravity Simulator 0.3.3", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PNsim: Gravity Simulator 0.3.3", NULL, NULL);
 	if (!window)
 	{
 		std::cout << "Failed to create window" << std::endl;
@@ -858,7 +1021,7 @@ int main(int, char**)
 	RK45_integration integrator(1e-8, 1e-10, 0.05);
 
 	bool show = true;
-	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f);
+	glm::vec4 background(0.75f, 0.75f, 0.75f, 1.0f); // 0.5, 0.5, 0.5
 
 	int FPS = 60;
 
@@ -881,15 +1044,16 @@ int main(int, char**)
 	return 0;
 };
 
-
-
 // Function definitions ~ kept below the main loop for formatting
 static void glfw_error_callback(int error, const char* description) {
 	fprintf(stderr, "GLFW ERROR %d: %s\n", error, description); // formatted print ~ using the format of a C error document it prints GLFW ERROR then its error number and then the description
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-	glfwGetWindowSize(window, &SCR_HEIGHT, &SCR_WIDTH);
+		
+	SCR_WIDTH = width;
+	SCR_HEIGHT = height;
+
 	glViewport(0, 0, width, height); // Details how OpenGL should map its NDC (Normalised Device Coordinates) to the display
 }
 
