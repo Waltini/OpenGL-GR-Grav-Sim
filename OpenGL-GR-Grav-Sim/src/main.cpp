@@ -44,7 +44,7 @@ int SCR_HEIGHT = 600;
 
 constexpr float AXIS_LEN = 200.0f;
 
-camera cam(-90.0f, 0.0f, 800.0f / 2.0f, 600.0f / 2.0f, 45.0f);
+cameras::camera cam(-90.0f, 0.0f, 800.0f / 2.0f, 600.0f / 2.0f, 45.0f);
 
 using dvec3 = glm::dvec3;
 using dmat43 = glm::mat<4, 3, double>;
@@ -299,7 +299,6 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods);
-void DrawOrientationGizmo(camera& cam, Shader* shader, glm::mat3 cornerRot, objects::arrow* axisX, objects::arrow* axisY, objects::arrow* axisZ, objects::sphere* dot, int winW, int winH);
 
 // Formatting Functions
 enum infields {
@@ -397,8 +396,10 @@ public:
 		editStack.push(edit_state);
 	}
 
-	void undoState() {
-		editStack.undo();
+	void undoState(bool running_flag = false) {
+		if (!running_flag) {
+			editStack.undo();
+		}
 		state new_val = editStack.read();
 		dmat43 vectors = new_val.vectors;
 		edit(vectors[0], vectors[1], vectors[2], vectors[3], new_val.m1, new_val.m2);
@@ -556,14 +557,28 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 	fs::path fontPath = fs::path("assets") / "DejaVuSans.ttf";
 
-	io.Fonts->AddFontFromFileTTF(
+	// Default ImGui font (old one)
+	ImFont* defaultFont = io.Fonts->AddFontDefault();
+
+	// Your Unicode / crash font
+	ImFont* crashFont = io.Fonts->AddFontFromFileTTF(
 		fontPath.string().c_str(),
 		18.0f,
 		nullptr,
 		ranges
 	);
 
-	io.FontDefault = io.Fonts->Fonts.back();
+	// Optional: make crash font the global default
+	io.FontDefault = crashFont;
+
+	//io.Fonts->AddFontFromFileTTF(
+	//	fontPath.string().c_str(),
+	//	18.0f,
+	//	nullptr,
+	//	ranges
+	//);
+
+	//io.FontDefault = io.Fonts->Fonts.back();
 
 	// Setup Platform/Renderer backends
 	ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -616,7 +631,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	objects::arrow axisY(
 		glm::vec3(0.0f),
 		Y_AXIS,
-		glm::vec3(0, 1, 0), // green
+		glm::vec3(0, 0.8f, 0), // green
 		0.02f,
 		16
 	);
@@ -697,6 +712,11 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
+		if (!pause) {
+			edit_f = false;
+			checkpt_f = false;
+		}
+
 		// Snapshot segmenting
 		body1.pos = b1.getPos();
 		body1.vel = b1.getVel();
@@ -760,8 +780,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				bufbx.setCrash(false);
 				crash::has_crashed = false;
 				crash::crashQuote = nullptr;
-				bufbx.undoState();
-				bufbx.redoState();
+				bufbx.undoState(true);
 				ImGui::CloseCurrentPopup();
 			}
 
@@ -770,17 +789,9 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		// Test GUI
 		if (show) {
-			ImGui::Begin("Hello World!");
-			if (ImGui::Button("Pause")) {
-				pause = true;
-				P_cv.notify_one();
-			}
-			if (ImGui::Button("Unpause")) {
-				pause = false;
-				edit_f = false;
-				checkpt_f = false;
-				P_cv.notify_one();
-			}
+			ImGui::PushFont(defaultFont);
+
+			ImGui::Begin("Editor");
 			// Vector Input Fields
 			ImGui_Input_Vector_Fields(pos, body1_edit);
 			ImGui_Input_Vector_Fields(vel, body1_edit);
@@ -800,6 +811,8 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			}
 
 			ImGui::End();
+
+			ImGui::PopFont();
 		}
 
 		cam.look(view);
@@ -839,14 +852,29 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		if (ImGui::BeginMainMenuBar()) {
 			if (ImGui::BeginMenu("Edit")) {
 				if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
-					pause = true;
-					P_cv.notify_one();
-					bufbx.undoState();
+					if (!pause) {
+						pause = true;
+						P_cv.notify_one();
+						bufbx.undoState(true);
+					}
+					else {
+						bufbx.undoState();
+					}
 				}
 				if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
 					pause = true;
 					P_cv.notify_one();
 					bufbx.redoState();
+				}
+				if (ImGui::MenuItem("Pause", "Ctrl+P")) {
+					if (pause) {
+						pause = false;
+						P_cv.notify_one();
+					}
+					else {
+						pause = true;
+						P_cv.notify_one();
+					}
 				}
 				ImGui::EndMenu();
 			}
@@ -968,7 +996,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		dl->AddText(Project(cam.getCornerRot() * glm::vec3(1.2f, -0.1f, 0)), // 1.2f, 0.0f, 0.0f
 			IM_COL32(255, 80, 80, 255), "X");
 		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0.1f, 1.2f, 0)), // 0.0f, 1.2f, 0.0f
-			IM_COL32(80, 255, 80, 255), "Y");
+			IM_COL32(64, 204, 64, 255), "Y");
 		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0, -0.1f, 1.2f)), // 0.0f, 0.0f, 1.2f
 			IM_COL32(80, 80, 255, 255), "Z");
 
@@ -1062,14 +1090,17 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 	// -------------------------------------------------------------------------------
 	// Camera Moving
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		cam.move(forward, deltaTime);
+		cam.move(cameras::forward, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		cam.move(backward, deltaTime);
+		cam.move(cameras::backward, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		cam.move(left, deltaTime);
+		cam.move(cameras::left, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		cam.move(right, deltaTime);
-
+		cam.move(cameras::right, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		cam.move(cameras::up, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+		cam.move(cameras::down, deltaTime);
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -1091,13 +1122,28 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods) {
+	if (button == GLFW_KEY_P && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
+		if (pause) {
+			pause = false;
+			P_cv.notify_one();
+		}
+		else {
+			pause = true;
+			P_cv.notify_one();
+		}
+	}
 	if (button == GLFW_KEY_R && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
 		cam.resetCommand();
 	}
 	if (button == GLFW_KEY_Z && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
-		pause = true;
-		P_cv.notify_one();
-		bufbx.undoState();
+		if (!pause) {
+			pause = true;
+			P_cv.notify_one();
+			bufbx.undoState(true);
+		}
+		else {
+			bufbx.undoState();
+		}
 	}
 	if (button == GLFW_KEY_Y && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
 		pause = true;
@@ -1131,10 +1177,41 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 		snprintf(label_y, sizeof(label_y), "##b%i_%s_y", edit_obj.body_num, label_name); // reformats ID label_y to contain the relevant information
 		snprintf(label_z, sizeof(label_z), "##b%i_%s_z", edit_obj.body_num, label_name); // reformats ID label_z to contain the relevant information
 
+		char btn_x[64], btn_y[64], btn_z[64];
+		snprintf(btn_x, sizeof(btn_x), "X##b%i_%s_x_btn", edit_obj.body_num, label_name);
+		snprintf(btn_y, sizeof(btn_y), "Y##b%i_%s_y_btn", edit_obj.body_num, label_name);
+		snprintf(btn_z, sizeof(btn_z), "Z##b%i_%s_z_btn", edit_obj.body_num, label_name);
+
 		ImGui::Text("%s", label_name); // display label
-		ImGui::SameLine(); ImGui::InputDouble(label_x, &vec->x, 0.01, 1.0, "%e"); // input field for the x component of the vector
-		ImGui::SameLine(); ImGui::InputDouble(label_y, &vec->y, 0.01, 1.0, "%e"); // input field for the y component of the vector
-		ImGui::SameLine(); ImGui::InputDouble(label_z, &vec->z, 0.01, 1.0, "%e"); // input field for the z component of the vector
+
+		// X
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+		if (ImGui::Button(btn_x)) {
+			vec->x = 0.0;
+		}
+		ImGui::PopStyleColor();
+		ImGui::SameLine(); 
+		ImGui::InputDouble(label_x, & vec->x, 0.01, 1.0, "%e"); // input field for the x component of the vector
+		ImGui::SameLine();
+
+		// Y
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+		if (ImGui::Button(btn_y)) {
+			vec->y = 0.0;
+		}
+		ImGui::PopStyleColor();
+		ImGui::SameLine(); 
+		ImGui::InputDouble(label_y, &vec->y, 0.01, 1.0, "%e"); // input field for the y component of the vector
+		ImGui::SameLine();
+
+		// Z
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.9f, 1.0f));
+		if (ImGui::Button(btn_z)) {
+			vec->z = 0.0;
+		}
+		ImGui::PopStyleColor();
+		ImGui::SameLine(); 
+		ImGui::InputDouble(label_z, &vec->z, 0.01, 1.0, "%e"); // input field for the z component of the vector
 		break;
 	}
 

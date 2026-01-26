@@ -184,10 +184,10 @@
     <None Include="assets\shader.vs">
       <FileType>CppCode</FileType>
     </None>
-    <None Include="cornerShader.fs">
+    <None Include="assets\cornerShader.fs">
       <FileType>CppCode</FileType>
     </None>
-    <None Include="cornerShader.vs">
+    <None Include="assets\cornerShader.vs">
       <FileType>CppCode</FileType>
     </None>
   </ItemGroup>
