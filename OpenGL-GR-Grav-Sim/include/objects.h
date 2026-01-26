@@ -158,7 +158,7 @@ namespace objects {
             glDeleteBuffers(1, &m_VBO);
         }
 
-        void transform(const glm::vec3& position, const glm::vec3& magnitude, const float radius) {
+        void transform(const glm::vec3& position, const glm::vec3& magnitude, const float radius, const float thickness = 0.0f) {
             if (glm::length2(magnitude) < 0.0625) { draw_f = false; }
             else { draw_f = true; }
 
@@ -181,6 +181,12 @@ namespace objects {
                 neck_radialScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
                 head_lengthScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
                 head_radialScale = (1.0f / 3.0f) * val + (1.0f / 3.0f);
+            }
+
+            if (thickness > 0.0f) {
+                neck_radialScale = thickness;
+                head_lengthScale = thickness;
+                head_radialScale = thickness;
             }
 
             updateModelMatrices();

@@ -56,7 +56,7 @@ public:
 	}
 
 	const inline void project(glm::mat4& projection, float height, float width) {
-		projection = glm::perspective(glm::radians(fov), height / width, 0.1f, 100.0f);  // Grabs the current screen height and width to scale display accordingly. This is responsible for converting world coordinates into NDC
+		projection = glm::perspective(glm::radians(fov), width / height, 0.1f, 100.0f);  // Grabs the current screen height and width to scale display accordingly. This is responsible for converting world coordinates into NDC
 	}
 
 	inline void move(directions direction, const double deltaTime) {
@@ -129,6 +129,22 @@ public:
 
 	inline void resetCommand() {
 		reset();
+	}
+
+	glm::mat3 getCornerRot() const {
+		glm::vec3 forward = glm::normalize(cameraFront);
+		glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0, 1, 0)));
+		glm::vec3 up = glm::normalize(glm::cross(right, forward));
+
+		glm::mat3 camRot;
+		camRot[0] = right;
+		camRot[1] = up;
+		camRot[2] = -forward;
+
+		// Inverse so gizmo shows where camera is facing
+		glm::mat3 cornerRot = glm::transpose(camRot);
+		
+		return cornerRot;
 	}
 
 };

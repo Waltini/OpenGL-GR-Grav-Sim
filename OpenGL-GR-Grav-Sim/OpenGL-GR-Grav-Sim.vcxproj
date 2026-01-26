@@ -184,6 +184,12 @@
     <None Include="assets\shader.vs">
       <FileType>CppCode</FileType>
     </None>
+    <None Include="cornerShader.fs">
+      <FileType>CppCode</FileType>
+    </None>
+    <None Include="cornerShader.vs">
+      <FileType>CppCode</FileType>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
