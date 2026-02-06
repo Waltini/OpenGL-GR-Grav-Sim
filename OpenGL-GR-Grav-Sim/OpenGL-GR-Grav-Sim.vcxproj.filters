@@ -56,9 +56,27 @@
     <ClInclude Include="include\crashtext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\skybox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\shader.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="assets\flatshader.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="assets\flatshader.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="assets\skyshader.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="assets\skyshader.vs">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

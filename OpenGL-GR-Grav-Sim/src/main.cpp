@@ -1,5 +1,6 @@
 #define M_PI        3.14159265358979323846264338327950288   /* pi */
 #define GLM_ENABALE_EXPERIMENTAL
+#define STB_IMAGE_IMPLEMENTATION
 
 #include "formulae.h"
 #include "integration.h"
@@ -8,6 +9,7 @@
 #include "camera_class.h"
 #include "objects.h"
 #include "crashtext.h"
+#include "skybox.h"
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
@@ -43,6 +45,10 @@ int SCR_HEIGHT = 600;
 //}
 
 constexpr float AXIS_LEN = 200.0f;
+
+constexpr glm::vec3 X_AXIS(AXIS_LEN, 0.0f, 0.0f);
+constexpr glm::vec3 Y_AXIS(0.0f, AXIS_LEN, 0.0f);
+constexpr glm::vec3 Z_AXIS(0.0f, 0.0f, AXIS_LEN);
 
 cameras::camera cam(-90.0f, 0.0f, 800.0f / 2.0f, 600.0f / 2.0f, 45.0f);
 
@@ -593,12 +599,17 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	// Main View Shader
 	fs::path main_vertexPath = fs::path("assets") / "shader.vs";
 	fs::path main_fragmentPath = fs::path("assets") / "shader.fs";
-	Shader mainShader(main_vertexPath.string().c_str(), main_fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
+	Shader lightingShader(main_vertexPath.string().c_str(), main_fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
 
-	// Corner View Shader
-	fs::path corner_vertexPath = fs::path("assets") / "shader.vs";
-	fs::path corner_fragmentPath = fs::path("assets") / "shader.fs";
-	Shader cornerShader(corner_vertexPath.string().c_str(), corner_fragmentPath.string().c_str()); // Points my shader class to my vertex and fragment shader files
+	// Flat Shader (No lighting)
+	fs::path flat_vertexPath = fs::path("assets") / "flatshader.vs";
+	fs::path flat_fragmentPath = fs::path("assets") / "flatshader.fs";
+	Shader flatShader(flat_vertexPath.string().c_str(), flat_fragmentPath.string().c_str());
+
+	// Skybox Shader
+	fs::path skybox_vertexPath = fs::path("assets") / "skyshader.vs";
+	fs::path skybox_fragmentPath = fs::path("assets") / "skyshader.fs";
+	Shader skyboxShader(skybox_vertexPath.string().c_str(), skybox_fragmentPath.string().c_str());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -616,11 +627,10 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lastFrame = 0.0f; // Time of last frame
 
-	// Corner Diagram
-	glm::vec3 X_AXIS(AXIS_LEN, 0.0f, 0.0f);
-	glm::vec3 Y_AXIS(0.0f, AXIS_LEN, 0.0f);
-	glm::vec3 Z_AXIS(0.0f, 0.0f, AXIS_LEN);
+	// Skybox
+	Skybox skybox;
 
+	// Corner Diagram
 	objects::arrow axisX(
 		glm::vec3(0.0f),
 		X_AXIS,
@@ -631,7 +641,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	objects::arrow axisY(
 		glm::vec3(0.0f),
 		Y_AXIS,
-		glm::vec3(0, 0.8f, 0), // green
+		glm::vec3(0, 1, 0), // green
 		0.02f,
 		16
 	);
@@ -644,6 +654,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	);
 
 	objects::sphere cornerDot(16, 8, glm::vec3(1.0f), glm::vec3(0.0f));
+	cornerDot.transform(glm::vec3(0), 0.15f); // radius 0.02, 0.1
 
 	// Corner Rendering
 	const int size = 120;
@@ -789,9 +800,10 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		// Test GUI
 		if (show) {
+			ImGui::Begin("Editor");
+
 			ImGui::PushFont(defaultFont);
 
-			ImGui::Begin("Editor");
 			// Vector Input Fields
 			ImGui_Input_Vector_Fields(pos, body1_edit);
 			ImGui_Input_Vector_Fields(vel, body1_edit);
@@ -810,52 +822,57 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				bufbx.applyEdits(body1_edit.pos, body1_edit.vel, body2_edit.pos, body2_edit.vel, body1_edit.mass, body2_edit.mass);
 			}
 
-			ImGui::End();
-
 			ImGui::PopFont();
+
+			ImGui::End();
 		}
 
 		cam.look(view);
 		cam.project(projection, SCR_HEIGHT, SCR_WIDTH);
 
-		mainShader.use();
+		lightingShader.use();
 		// uniform assigning
-		mainShader.setMat4("view", view); // sets the calculated view matrix to the uniform variable view matrix called within the vertex shader
-		mainShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
+		lightingShader.setVec3("lightColour", 1.0f, 1.0f, 1.0f);
+		lightingShader.setVec3("lightPos", skybox.getLightPos());
+		lightingShader.setVec3("viewPos", cam.getCameraPos());
+
+		lightingShader.setMat4("view", view); // sets the calculated view matrix to the uniform variable view matrix called within the vertex shader
+		lightingShader.setMat4("projection", projection); // sets the calculated projection matrix to the uniform variable projection matrix called within the vertex shader
 
 		//// Body 1
 		sphere1.transform(body1.pos, body1.radius);
 
-		sphere1.draw(&mainShader);
+		sphere1.draw(&lightingShader);
 
 		//// Body 2
 		sphere2.transform(body2.pos, body2.radius);
 
-		sphere2.draw(&mainShader);
+		sphere2.draw(&lightingShader);
+
+		flatShader.use();
+
+		flatShader.setMat4("view", view);
+		flatShader.setMat4("projection", projection);
 
 		v_arrow_1.transform(body1.pos, body1.vel, body1.radius);
 		v_arrow_2.transform(body2.pos, body2.vel, body2.radius);
 		a_arrow_1.transform(body1.pos, body1.accl, body1.radius);
 		a_arrow_2.transform(body2.pos, body2.accl, body2.radius);
 
-		axisX.transform(glm::vec3(0), cam.getCornerRot() * X_AXIS, 0.1f, 5.0f); // radius offset 0.02
-		axisY.transform(glm::vec3(0), cam.getCornerRot() * Y_AXIS, 0.1f, 5.0f);
-		axisZ.transform(glm::vec3(0), cam.getCornerRot() * Z_AXIS, 0.1f, 5.0f);
-		cornerDot.transform(glm::vec3(0), 0.15f); // radius 0.02, 0.1
-
-		v_arrow_1.draw(&mainShader);
-		v_arrow_2.draw(&mainShader);
-		a_arrow_1.draw(&mainShader);
-		a_arrow_2.draw(&mainShader); 
+		v_arrow_1.draw(&flatShader);
+		v_arrow_2.draw(&flatShader);
+		a_arrow_1.draw(&flatShader);
+		a_arrow_2.draw(&flatShader); 
 
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
 			if (ImGui::BeginMenu("Edit")) {
 				if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
 					if (!pause) {
+						// if program is currently running
 						pause = true;
 						P_cv.notify_one();
-						bufbx.undoState(true);
+						bufbx.undoState(true); // revert instead of undo
 					}
 					else {
 						bufbx.undoState();
@@ -878,13 +895,21 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				}
 				ImGui::EndMenu();
 			}
-			if (ImGui::BeginMenu("Camera")) {
-				if (ImGui::BeginMenu("Settings")) {
-					cam.settings();
-					ImGui::EndMenu();
+			if (ImGui::BeginMenu("View")) {
+				if (ImGui::MenuItem("Regenerate Backdrop")) {
+					skybox.regenerate();
 				}
-				if (ImGui::MenuItem("Reset Camera", "Ctrl+R")) {
-					cam.resetCommand();
+				if (ImGui::BeginMenu("Camera")) {
+					if (ImGui::BeginMenu("Settings")) {
+						ImGui::PushFont(defaultFont);
+						cam.settings();
+						ImGui::PopFont();
+						ImGui::EndMenu();
+					}
+					if (ImGui::MenuItem("Reset Camera", "Ctrl+R")) {
+						cam.resetCommand();
+					}
+					ImGui::EndMenu();
 				}
 				ImGui::EndMenu();
 			}
@@ -940,6 +965,10 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			ImGui::EndMainMenuBar();
 		}
 
+		axisX.transform(glm::vec3(0), cam.getCornerRot() * X_AXIS, 0.1f, 5); // radius offset 0.02
+		axisY.transform(glm::vec3(0), cam.getCornerRot() * Y_AXIS, 0.1f, 5);
+		axisZ.transform(glm::vec3(0), cam.getCornerRot() * Z_AXIS, 0.1f, 5);
+
 		int vx = SCR_WIDTH - size - 2 * pad; // originally 1 * pad (pad = 20)
 		int vy = SCR_HEIGHT - size - 3 * pad; // originally 1 * pad (pad = 20)
 
@@ -957,23 +986,23 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			-5.0f, 5.0f
 		);
 
-		glm::mat4 view = glm::lookAt(
+		glm::mat4 viewC = glm::lookAt(
 			glm::vec3(0, 0, 3),
 			glm::vec3(0, 0, 0),
 			glm::vec3(0, 1, 0)
 		);
 
-		cornerShader.use();
-		cornerShader.setMat4("projection", proj);
-		cornerShader.setMat4("view", view);
+		flatShader.use();
+		flatShader.setMat4("projection", proj);
+		flatShader.setMat4("view", viewC);
 
 		// --------------------------------------------------
 		// Draw arrows + sphere
 		// --------------------------------------------------
-		axisX.draw(&cornerShader);
-		axisY.draw(&cornerShader);
-		axisZ.draw(&cornerShader);
-		cornerDot.draw(&cornerShader);
+		axisX.draw(&flatShader);
+		axisY.draw(&flatShader);
+		axisZ.draw(&flatShader);
+		cornerDot.draw(&flatShader);
 
 		// --------------------------------------------------
 		// Draw labels (ImGui overlay)
@@ -985,25 +1014,32 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		);
 
 		auto Project = [&](glm::vec3 p) {
-			glm::vec4 clip = proj * view * glm::vec4(p, 1.0f);
+			glm::vec4 clip = proj * viewC * glm::vec4(p, 1.0f);
 			clip /= clip.w;
 			return ImVec2(
 				origin.x + (clip.x * 0.5f + 0.5f) * size,
 				origin.y + (-clip.y * 0.5f + 0.5f) * size
 			);
-			};
+		};
 
-		dl->AddText(Project(cam.getCornerRot() * glm::vec3(1.2f, -0.1f, 0)), // 1.2f, 0.0f, 0.0f
-			IM_COL32(255, 80, 80, 255), "X");
-		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0.1f, 1.2f, 0)), // 0.0f, 1.2f, 0.0f
-			IM_COL32(64, 204, 64, 255), "Y");
-		dl->AddText(Project(cam.getCornerRot() * glm::vec3(0, -0.1f, 1.2f)), // 0.0f, 0.0f, 1.2f
-			IM_COL32(80, 80, 255, 255), "Z");
+		dl->AddText(Project(cam.getCornerRot()* glm::vec3(1.2f, -0.1f, 0)), // Position of the X label
+			IM_COL32(255, 80, 80, 255), "X"); // Colour of the X label
+		dl->AddText(Project(cam.getCornerRot()* glm::vec3(0.1f, 1.2f, 0)), // Position of the Y label
+			IM_COL32(80, 255, 80, 255), "Y"); // Colour of the Y label
+		dl->AddText(Project(cam.getCornerRot()* glm::vec3(0, -0.1f, 1.2f)), // Position of the Z label
+			IM_COL32(80, 80, 255, 255), "Z"); // Colour of the Z label
 
 		// --------------------------------------------------
 		// Restore state
 		// --------------------------------------------------
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
+		skyboxShader.use();
+		glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
+		skyboxShader.setMat4("view", skyboxView);
+		skyboxShader.setMat4("projection", projection);
+
+		skybox.draw(skyboxShader);
 
 		// Imgui Render
 		ImGui::Render();
@@ -1031,7 +1067,7 @@ int main(int, char**)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	
 	// Window Creation
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PNsim: Gravity Simulator 0.3.3", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PNsim: Gravity Simulator 1.0", NULL, NULL);
 	if (!window)
 	{
 		std::cout << "Failed to create window" << std::endl;
@@ -1049,7 +1085,7 @@ int main(int, char**)
 	RK45_integration integrator(1e-8, 1e-10, 0.05);
 
 	bool show = true;
-	glm::vec4 background(0.75f, 0.75f, 0.75f, 1.0f); // 0.5, 0.5, 0.5
+	glm::vec4 background(0.5f, 0.5f, 0.5f, 1.0f); // 0.5, 0.5, 0.5
 
 	int FPS = 60;
 
@@ -1172,10 +1208,10 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 		glm::dvec3* vec = (intp_type == pos) ? &edit_obj.pos : &edit_obj.vel; // selects which vector to use
 		const char* label_name = (intp_type == pos) ? "Position" : "Velocity"; // selects the display label for the vector input fields
 
-		char label_x[64], label_y[64], label_z[64];
-		snprintf(label_x, sizeof(label_x), "##b%i_%s_x", edit_obj.body_num, label_name); // reformats ID label_x to contain the relevant information
-		snprintf(label_y, sizeof(label_y), "##b%i_%s_y", edit_obj.body_num, label_name); // reformats ID label_y to contain the relevant information
-		snprintf(label_z, sizeof(label_z), "##b%i_%s_z", edit_obj.body_num, label_name); // reformats ID label_z to contain the relevant information
+		char input_x[64], input_y[64], input_z[64];
+		snprintf(input_x, sizeof(input_x), "##b%i_%s_x", edit_obj.body_num, label_name); // reformats ID label_x to contain the relevant information
+		snprintf(input_y, sizeof(input_y), "##b%i_%s_y", edit_obj.body_num, label_name); // reformats ID label_y to contain the relevant information
+		snprintf(input_z, sizeof(input_z), "##b%i_%s_z", edit_obj.body_num, label_name); // reformats ID label_z to contain the relevant information
 
 		char btn_x[64], btn_y[64], btn_z[64];
 		snprintf(btn_x, sizeof(btn_x), "X##b%i_%s_x_btn", edit_obj.body_num, label_name);
@@ -1191,7 +1227,7 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 		}
 		ImGui::PopStyleColor();
 		ImGui::SameLine(); 
-		ImGui::InputDouble(label_x, & vec->x, 0.01, 1.0, "%e"); // input field for the x component of the vector
+		ImGui::InputDouble(input_x, & vec->x, 0.01, 1.0, "%e"); // input field for the x component of the vector
 		ImGui::SameLine();
 
 		// Y
@@ -1201,7 +1237,7 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 		}
 		ImGui::PopStyleColor();
 		ImGui::SameLine(); 
-		ImGui::InputDouble(label_y, &vec->y, 0.01, 1.0, "%e"); // input field for the y component of the vector
+		ImGui::InputDouble(input_y, &vec->y, 0.01, 1.0, "%e"); // input field for the y component of the vector
 		ImGui::SameLine();
 
 		// Z
@@ -1211,7 +1247,7 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 		}
 		ImGui::PopStyleColor();
 		ImGui::SameLine(); 
-		ImGui::InputDouble(label_z, &vec->z, 0.01, 1.0, "%e"); // input field for the z component of the vector
+		ImGui::InputDouble(input_z, &vec->z, 0.01, 1.0, "%e"); // input field for the z component of the vector
 		break;
 	}
 

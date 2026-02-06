@@ -167,6 +167,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\stb_image.h" />
     <ClInclude Include="include\crashtext.h" />
     <ClInclude Include="include\camera_class.h" />
     <ClInclude Include="include\celestial_body_class.h" />
@@ -174,6 +175,7 @@
     <ClInclude Include="include\integration.h" />
     <ClInclude Include="include\shaders_c.h" />
     <ClInclude Include="include\objects.h" />
+    <ClInclude Include="include\skybox.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assets\shader.fs">
@@ -184,10 +186,16 @@
     <None Include="assets\shader.vs">
       <FileType>CppCode</FileType>
     </None>
-    <None Include="assets\cornerShader.fs">
+    <None Include="assets\flatshader.fs">
       <FileType>CppCode</FileType>
     </None>
-    <None Include="assets\cornerShader.vs">
+    <None Include="assets\flatshader.vs">
+      <FileType>CppCode</FileType>
+    </None>
+    <None Include="assets\skyshader.fs">
+      <FileType>CppCode</FileType>
+    </None>
+    <None Include="assets\skyshader.vs">
       <FileType>CppCode</FileType>
     </None>
   </ItemGroup>

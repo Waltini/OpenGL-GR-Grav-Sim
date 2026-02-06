@@ -13,6 +13,11 @@
 
 namespace objects {
 
+    struct vertex {
+        glm::vec3 position;
+        glm::vec3 normal;
+    };
+
     namespace detail {}
 
     class cube {
@@ -413,8 +418,7 @@ namespace objects {
     private:
         GLuint s_VAO{}, s_VBO{}, s_EBO{};
 
-        std::vector<glm::vec3> m_vertices;
-        std::vector<glm::vec3> m_normals;
+        std::vector<vertex> m_vertices;
         std::vector<unsigned int> m_indices;
 
         glm::mat4 s_model{ 1.0f };
@@ -430,7 +434,6 @@ namespace objects {
 
         void generateMesh(int sectorCount, int stackCount) {
             m_vertices.clear();
-            m_normals.clear();
             m_indices.clear();
 
             float sectorStep = 2.0f * M_PI / sectorCount;
@@ -448,8 +451,7 @@ namespace objects {
                     float y = xy * sinf(theta);
 
                     glm::vec3 pos{ x, y, z };
-                    m_vertices.push_back(pos);
-                    m_normals.push_back(glm::normalize(pos));
+                    m_vertices.push_back({ pos, glm::normalize(pos) });
                 }
             }
 
@@ -481,18 +483,25 @@ namespace objects {
 
             glBindBuffer(GL_ARRAY_BUFFER, s_VBO);
             glBufferData(GL_ARRAY_BUFFER,
-                m_vertices.size() * sizeof(glm::vec3),
+                m_vertices.size() * sizeof(vertex),
                 m_vertices.data(),
                 GL_STATIC_DRAW);
+
+            // position
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            // normal
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+                sizeof(vertex),
+                (void*)offsetof(vertex, normal));
+            glEnableVertexAttribArray(1);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s_EBO);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                 m_indices.size() * sizeof(unsigned int),
                 m_indices.data(),
                 GL_STATIC_DRAW);
-
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-            glEnableVertexAttribArray(0);
 
             glBindVertexArray(0);
         }

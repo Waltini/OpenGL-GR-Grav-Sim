@@ -147,17 +147,17 @@ namespace cameras {
 			glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0, 1, 0)));
 			glm::vec3 up = glm::normalize(glm::cross(right, forward));
 
-			glm::mat3 camRot;
+			glm::mat3 camRot; // The vector difference in the axis of the camera to the world axis
 			camRot[0] = right;
 			camRot[1] = up;
 			camRot[2] = -forward;
 
-			// Inverse so gizmo shows where camera is facing
-			glm::mat3 cornerRot = glm::transpose(camRot);
+			glm::mat3 cornerRot = glm::transpose(camRot); // Transpose the matrix to find the rotation
 
 			return cornerRot;
 		}
 
+		glm::vec3 getCameraPos() const { return cameraPos; }
 	};
 }
 

@@ -11,11 +11,11 @@ namespace crash {
 
 		const char* blurbs[] = {
 			"Physics is not yet ripe enough for my simulation… it crashed",
-			"“Oh no my hand is getting tired” - Louis Slotin, 3:20 PM, May 21st, 1946 (Look it up)",
-			"“Why does it smell like updawg?”",
-			"“COUGHING BABY VS–” … there was nothing left of the baby",
+			"\"Oh no my hand is getting tired\" - Louis Slotin, 3:20 PM, May 21st, 1946 (Look it up)",
+			"\"Why does it smell like updawg?\"",
+			"\"COUGHING BABY VS–\" … there was nothing left of the baby",
 			"A great man once said 'If you wish to make an apple pie truly from scratch, you must first invent the universe.' you didn’t do that.",
-			"Richard Feynman once said “Physics is like sex.” If that's so, why has this simulation crashed?",
+			"Richard Feynman once said \"Physics is like sex.\" If that's so, why has this simulation crashed?",
 			"One minute you're throwing apples from a tree at some white guy in 17th century England. Next minute, you’re watching someone crash a physics simulator in the 21st century.",
 			"It’s not you, it's me. No literally, I crashed.",
 			"I mean if time is relative, maybe I didn’t crash. Maybe you just suck at this– no wait that doesn’t make sense.",
@@ -42,10 +42,10 @@ namespace crash {
 			"Someone call Tyler. We need the creator.",
 			"Tried replacing all normal matter with exotic matter and this happened.",
 			"Damn you really want to create a black hole. You got something you want to tell me?",
-			"“On the entire universe I'm not gay.”",
+			"\"On the entire universe I'm not gay.\"",
 			"You ain't Einstein stop trying"
 			"The simulation finna bust",
-			"“I had a dream where Gabriel Jacquinot died” is an underrated, insane line",
+			"\"I had a dream where Gabriel Jacquinot died\" is an underrated, insane line",
 			"The simulation said you were stinky and it didn't want to work with you"
 		};
 
