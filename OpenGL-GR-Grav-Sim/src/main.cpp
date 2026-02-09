@@ -487,6 +487,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 	double physics_dt = 0.033;
 	dmat43 mat{ dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 }, dvec3{ 0.0 } };
 	integrate_result result(mat, 0, 0, 0, 0.0, false); 
+	bool wait_f = false;
 
 	int count = 0, accepts = 0, rejects = 0;
 
@@ -514,6 +515,7 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 		accum_t += delta;
 
 		while (accum_t >= physics_dt) {
+			wait_f = true;
 			accum_t -= physics_dt;
 			result = integrator.step(BackBuffer, physics_dt); // Steps through the physics given the current state within the backbuffer
 
@@ -540,7 +542,11 @@ void physics_thread(GLFWwindow* window, RK45_integration& integrator, double sim
 		//std::cout << "accept ratio = " << accepts / count << std::endl;
 		//std::cout << "reject ratio = " << rejects / count << std::endl;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(33));
+		if (wait_f) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(33));
+			wait_f = false;
+
+		}
 	}
 }
 
@@ -716,8 +722,6 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 		// Front Buffer Snapshot
 		clsState snapshot = bufbx.readFrontBuffer(); // grabs the pointers for the celestial body class objects
-		celestial_body b1 = *snapshot.b1; // De-referenced Body 1
-		celestial_body b2 = *snapshot.b2; // De-referenced Body 2
 
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
@@ -729,14 +733,14 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		}
 
 		// Snapshot segmenting
-		body1.pos = b1.getPos();
-		body1.vel = b1.getVel();
-		body1.mass = b1.getMass();
-		body1.radius = b1.getRadius();
-		body2.pos = b2.getPos();
-		body2.vel = b2.getVel();
-		body2.mass = b2.getMass();
-		body2.radius = b2.getRadius();
+		body1.pos = snapshot.b1->getPos();
+		body1.vel = snapshot.b1->getVel();
+		body1.mass = snapshot.b1->getMass();
+		body1.radius = snapshot.b1->getRadius();
+		body2.pos = snapshot.b2->getPos();
+		body2.vel = snapshot.b2->getVel();
+		body2.mass = snapshot.b2->getMass();
+		body2.radius = snapshot.b2->getRadius();
 		if (!edit_f) {
 			body1_edit.pos = body1.pos;
 			body1_edit.vel = body1.vel;
