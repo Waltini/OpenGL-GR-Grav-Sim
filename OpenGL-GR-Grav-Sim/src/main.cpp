@@ -25,6 +25,7 @@
 #include <fstream>
 #include <filesystem>
 
+#include <cstdint> 
 #include <queue>
 #include <array>
 #include <condition_variable>
@@ -305,6 +306,10 @@ void process_input(GLFWwindow* window, render_object& b1, render_object& b2, flo
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods);
+void ShowExplanationWindow(bool* p_open);
+GLuint LoadTextureFromFile(const char* filename);
+void HelpMarker(GLuint texture, const char* description);
+void ShowTransparentWindow(GLuint helpIconTexture, int WIDTH, int HEIGHT);
 
 // Formatting Functions
 enum infields {
@@ -627,6 +632,8 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 	bool edit_f = false; // editing flag to indicate if the user is editing properties
 	bool checkpt_f = false;
 
+	bool exp_menu = false;
+
 	glm::mat4 view;	// view matrix, representative of the current position of the where the point of view originates and in what direction
 	glm::mat4 projection; // projection matrix, responsible for dictating what is in view / what can be seen
 
@@ -802,7 +809,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 			ImGui::EndPopup();
 		}
 
-		// Test GUI
+		// Editor GUI
 		if (show) {
 			ImGui::Begin("Editor");
 
@@ -830,6 +837,8 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 
 			ImGui::End();
 		}
+
+		ShowExplanationWindow(&exp_menu);
 
 		cam.look(view);
 		cam.project(projection, SCR_HEIGHT, SCR_WIDTH);
@@ -868,6 +877,11 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		a_arrow_1.draw(&flatShader);
 		a_arrow_2.draw(&flatShader); 
 
+		// Bottom Right Helpmarker
+		fs::path helpIconPath = fs::path("assets") / ("textures") / ("icons") / ("Helpmarker.png");
+		GLuint helpIcon = LoadTextureFromFile(helpIconPath.string().c_str());
+		ShowTransparentWindow(helpIcon, SCR_WIDTH, SCR_HEIGHT);
+
 		// Main Menu Bar
 		if (ImGui::BeginMainMenuBar()) {
 			if (ImGui::BeginMenu("Edit")) {
@@ -900,9 +914,9 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("View")) {
-				if (ImGui::MenuItem("Regenerate Backdrop")) {
-					skybox.regenerate();
-				}
+				//if (ImGui::MenuItem("Regenerate Backdrop")) {
+				//	skybox.regenerate();
+				//}
 				if (ImGui::BeginMenu("Camera")) {
 					if (ImGui::BeginMenu("Settings")) {
 						ImGui::PushFont(defaultFont);
@@ -915,6 +929,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 					}
 					ImGui::EndMenu();
 				}
+				ImGui::MenuItem("Explanation", NULL, &exp_menu);
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Presets")) {
@@ -1043,7 +1058,7 @@ void render(GLFWwindow* window, int FPS, glm::vec4 background, bool show, const 
 		skyboxShader.setMat4("view", skyboxView);
 		skyboxShader.setMat4("projection", projection);
 
-		skybox.draw(skyboxShader);
+		//skybox.draw(skyboxShader);
 
 		// Imgui Render
 		ImGui::Render();
@@ -1163,12 +1178,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 void key_callback(GLFWwindow* window, int button, int scancode, int action, int mods) {
 	if (button == GLFW_KEY_P && action == GLFW_PRESS && mods == GLFW_MOD_CONTROL) {
-		if (pause) {
-			pause = false;
-			P_cv.notify_one();
-		}
-		else {
-			pause = true;
+		if (!bufbx.checkCrash()) {
+			pause = !pause;
 			P_cv.notify_one();
 		}
 	}
@@ -1272,4 +1283,118 @@ void ImGui_Input_Vector_Fields(infields intp_type, render_object& edit_obj) {
 	}
 
 	ImGui::PopItemWidth();
+}
+
+void ShowExplanationWindow(bool* p_open)
+{
+	if (!*p_open)
+		return;
+
+	// Set initial size only once
+	ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
+
+	if (ImGui::Begin("General Relativity Explanation", p_open))
+	{
+		// Wrap text to window width automatically
+		ImGui::PushTextWrapPos(0.0f);
+
+		ImGui::TextUnformatted(
+			"General relativity is a theory that describes the mechanics of gravity proposed by Albert Einstein.\n\n"
+
+			"According to general relativity, gravity is a characteristic of the universe's dispersed space. "
+			"Objects with mass distort the space around them. Space is more distorted the more mass "
+			"there is. In classical mechanics, this deformation of space is referred to as a \"gravitational field.\"\n\n"
+
+			"The effects of space distortion are complicated and plentiful. Vectors in distorted space are "
+			"warped in accordance with how the space is distorted. Therefore, when a moving object "
+			"traverses space distorted by another object, the moving object starts moving towards the "
+			"other object. The concept of direction (the fabric of tangible space) is distorted as a result of mass.\n\n"
+
+			"Einstein's earlier theory of relativity, special relativity, detailed that space and time are "
+			"intrinsic dimensions. They cannot exist or be influenced separately. Therefore, distorting "
+			"space also means time is warped. Thus, in environments of extreme gravity, time is slowed.\n\n"
+
+			"Further calculations have been done on general relativity, separate from Einstein. Major "
+			"concepts include gravitational radiation (gravity waves). When two objects with such "
+			"immense mass per unit volume interact with one another while in motion, they generate "
+			"waves in space; ripples of gravity. These spectacular gravity waves have been measured "
+			"and detected on Earth as a result of events millions of light years away."
+		);
+
+		ImGui::PopTextWrapPos();
+	}
+	ImGui::End();
+}
+
+GLuint LoadTextureFromFile(const char* filename)
+{
+	int width, height, channels;
+	unsigned char* data = stbi_load(filename, &width, &height, &channels, 4);
+	if (!data)
+		return 0;
+
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+		0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	stbi_image_free(data);
+	return texture;
+}
+
+void HelpMarker(GLuint texture, const char* description)
+{
+	ImGui::Image((ImTextureID)(intptr_t)texture, ImVec2(18, 18));
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		ImGui::PushTextWrapPos(500.0f);
+		ImGui::TextUnformatted(description);
+		ImGui::PopTextWrapPos();
+		ImGui::EndTooltip();
+	}
+}
+
+void ShowTransparentWindow(GLuint helpIconTexture, int WIDTH, int HEIGHT)
+{
+	// Distance from screen edges
+	const float padding = 10.0f;
+
+	// Position window at bottom-right
+	ImGui::SetNextWindowPos(
+		ImVec2((float)WIDTH - padding, (float)HEIGHT - padding),
+		ImGuiCond_Always,
+		ImVec2(1.0f, 1.0f)   // Pivot at bottom-right
+	);
+
+	// Fully transparent background
+	ImGui::SetNextWindowBgAlpha(0.0f);
+
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoDecoration |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav;
+
+	if (ImGui::Begin("BottomRightHelp", nullptr, flags))
+	{
+		HelpMarker(helpIconTexture,
+			"This is a simulation of gravity and general relativity. "
+			"To learn more about general relativity have a look at the "
+			"'Explanation' GUI toggleable in the 'View' menubar.\n\n"
+			"This program uses the post-Newtonian approximation and "
+			"RK45_Dormand-Prince integration to calculate its mathematics. "
+			"If you're interested look them up."
+		);
+	}
+
+	ImGui::End();
 }

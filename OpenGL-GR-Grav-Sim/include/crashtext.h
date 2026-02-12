@@ -1,8 +1,11 @@
 #pragma once
+#define STB_IMAGE_IMPLEMENTATION
 
 #include <iostream>
 #include <array>
 #include <random>
+
+#include <imgui/imgui.h>
 
 namespace crash {
 	namespace {
@@ -67,4 +70,5 @@ namespace crash {
 		}
 	}
 };
+
 
